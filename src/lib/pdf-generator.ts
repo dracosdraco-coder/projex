@@ -1,0 +1,313 @@
+'use client'
+
+// ============================================
+// PDF GENERATION — Client-side with jsPDF
+// Generates real downloadable PDFs
+// CRITICAL: Margins/costs NEVER shown to clients
+// ============================================
+
+import jsPDF from 'jspdf'
+
+const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0)
+
+const TYPE_LABELS: Record<string, string> = {
+  estimate: 'ESTIMATE', invoice: 'INVOICE', work_order: 'WORK ORDER',
+  change_order: 'CHANGE ORDER', purchase_order: 'PURCHASE ORDER',
+  proposal: 'PROPOSAL', contract: 'CONTRACT', inspection: 'INSPECTION',
+}
+
+export function generateDocumentPDF(doc: any): string {
+  if (doc.type === 'inspection') return generateInspectionPDF(doc)
+  if (doc.type === 'proposal' || doc.type === 'contract') return generateProposalPDF(doc)
+  return generateFinancialPDF(doc)
+}
+
+// Stub — kept for import compatibility
+export function saveProjectXFormat(_document: any, _outputPath?: string): void {
+  // no-op in client-side mode
+}
+
+// ---- Financial documents (estimate, invoice, work order, etc.) ----
+
+function generateFinancialPDF(doc: any): string {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
+  const W = pdf.internal.pageSize.getWidth()
+  const H = pdf.internal.pageSize.getHeight()
+  const M = 50
+  let y = M
+
+  const checkPage = (need: number) => { if (y + need > H - M) { pdf.addPage(); y = M } }
+
+  // Company header
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.setTextColor(30, 30, 30)
+  pdf.text(doc.companyName || 'Company', M, y); y += 16
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(120, 120, 120)
+  if (doc.companyAddress) { pdf.text(doc.companyAddress, M, y); y += 12 }
+  if (doc.companyPhone) { pdf.text(doc.companyPhone, M, y); y += 12 }
+  if (doc.companyEmail) { pdf.text(doc.companyEmail, M, y); y += 12 }
+
+  // Type + number (top right)
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(22); pdf.setTextColor(200, 200, 200)
+  pdf.text(TYPE_LABELS[doc.type] || 'DOCUMENT', W - M, M + 4, { align: 'right' })
+  pdf.setFontSize(10); pdf.setTextColor(120, 120, 120)
+  pdf.text(`#${doc.documentNumber || '—'}`, W - M, M + 24, { align: 'right' })
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9)
+  pdf.text(`Date: ${doc.dateIssued || '—'}`, W - M, M + 38, { align: 'right' })
+  if (doc.dateDue) pdf.text(`Due: ${doc.dateDue}`, W - M, M + 50, { align: 'right' })
+
+  y = Math.max(y, M + 60) + 20
+
+  // Bill To block
+  pdf.setFillColor(245, 245, 245); pdf.rect(M, y, W - M * 2, 50, 'F')
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
+  pdf.text('BILL TO', M + 10, y + 14)
+  pdf.setFontSize(11); pdf.setTextColor(30, 30, 30)
+  pdf.text(doc.clientName || '—', M + 10, y + 28)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(120, 120, 120)
+  if (doc.clientAddress) pdf.text(doc.clientAddress, M + 10, y + 42)
+  y += 65
+
+  // Line items table header
+  const items = doc.lineItems || []
+  pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(1.5); pdf.line(M, y, W - M, y); y += 14
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(120, 120, 120)
+  pdf.text('DESCRIPTION', M, y)
+  pdf.text('QTY', M + 260, y)
+  pdf.text('UNIT', M + 300, y)
+  pdf.text('PRICE', M + 355, y)
+  pdf.text('AMOUNT', W - M, y, { align: 'right' })
+  y += 8; pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 4
+
+  // Rows
+  items.forEach((li: any) => {
+    checkPage(20); y += 14
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(30, 30, 30)
+    const desc = (li.description || '—').substring(0, 50)
+    pdf.text(desc, M, y)
+    pdf.text(String(li.quantity || 0), M + 260, y)
+    pdf.text(li.unit || 'ea', M + 300, y)
+    pdf.text(fmt(li.price || li.unitPrice || 0), M + 340, y)
+    pdf.setFont('helvetica', 'bold')
+    pdf.text(fmt((li.quantity || 0) * (li.price || li.unitPrice || 0)), W - M, y, { align: 'right' })
+    pdf.setDrawColor(235, 235, 235); pdf.setLineWidth(0.3); pdf.line(M, y + 6, W - M, y + 6)
+    y += 6
+  })
+
+  y += 20
+
+  // Totals
+  const tx = W - M - 140
+  checkPage(60)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(30, 30, 30)
+  pdf.text('Subtotal', tx, y); pdf.text(fmt(doc.subtotal || 0), W - M, y, { align: 'right' }); y += 14
+  if ((doc.taxRate || 0) > 0 || (doc.taxTotal || 0) > 0) {
+    pdf.text(`Tax (${doc.taxRate || 0}%)`, tx, y); pdf.text(fmt(doc.taxTotal || 0), W - M, y, { align: 'right' }); y += 14
+  }
+  pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(1); pdf.line(tx, y, W - M, y); y += 16
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12)
+  pdf.text('Total', tx, y); pdf.text(fmt(doc.total || 0), W - M, y, { align: 'right' }); y += 30
+
+  // Terms
+  const termsText = doc.terms || ''
+  if (termsText && !termsText.startsWith('{')) {
+    checkPage(50)
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
+    pdf.text('TERMS', M, y); y += 14
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(120, 120, 120)
+    const termLines = pdf.splitTextToSize(termsText, W - M * 2)
+    termLines.forEach((line: string) => { checkPage(14); pdf.text(line, M, y); y += 12 })
+    y += 10
+  }
+
+  // Notes
+  if (doc.notes && !doc.notes.startsWith('{') && doc.notes.length < 500) {
+    checkPage(40)
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
+    pdf.text('NOTES', M, y); y += 14
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(120, 120, 120)
+    const noteLines = pdf.splitTextToSize(doc.notes, W - M * 2)
+    noteLines.forEach((line: string) => { checkPage(14); pdf.text(line, M, y); y += 12 })
+  }
+
+  const filename = `${doc.documentNumber || doc.type || 'document'}.pdf`
+  pdf.save(filename)
+  return filename
+}
+
+// ---- Inspection documents ----
+
+function generateInspectionPDF(doc: any): string {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
+  const W = pdf.internal.pageSize.getWidth()
+  const H = pdf.internal.pageSize.getHeight()
+  const M = 50
+  let y = M
+
+  const checkPage = (need: number) => { if (y + need > H - M) { pdf.addPage(); y = M } }
+
+  let meta: any = {}
+  try { meta = JSON.parse(doc.terms || '{}') } catch { /* noop */ }
+
+  // Title
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(18); pdf.setTextColor(30, 30, 30)
+  pdf.text(meta.title || doc.documentNumber || 'Inspection Report', W / 2, y, { align: 'center' }); y += 20
+
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(100, 100, 100)
+  const info = `Inspector: ${meta.inspector || doc.companyName || '—'}    Date: ${doc.dateIssued || '—'}    Location: ${meta.location || doc.notes || '—'}`
+  pdf.text(info, W / 2, y, { align: 'center' }); y += 10
+
+  pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(1.5); pdf.line(M, y, W - M, y); y += 20
+
+  // Sections
+  const sections = (doc.lineItems || []).filter((li: any) => li.description?.startsWith('__section__:'))
+
+  sections.forEach((section: any) => {
+    const sTitle = section.description.replace('__section__:', '')
+    const items = section.items || []
+
+    checkPage(40)
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(30, 30, 30)
+    pdf.text(sTitle, M, y); y += 4
+    pdf.setDrawColor(200, 200, 200); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 14
+
+    items.forEach((item: any, idx: number) => {
+      checkPage(18)
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9)
+      pdf.setTextColor(150, 150, 150); pdf.text(String(idx + 1), M, y)
+      pdf.setTextColor(30, 30, 30); pdf.text((item.question || '—').substring(0, 55), M + 20, y, { maxWidth: 280 })
+
+      const ans = item.answer || ''
+      if (ans === 'pass' || ans === 'yes') {
+        pdf.setTextColor(22, 163, 74); pdf.setFont('helvetica', 'bold'); pdf.text('PASS', W - M - 100, y)
+      } else if (ans === 'fail' || ans === 'no') {
+        pdf.setTextColor(220, 38, 38); pdf.setFont('helvetica', 'bold'); pdf.text('FAIL', W - M - 100, y)
+      } else if (ans === 'na') {
+        pdf.setTextColor(150, 150, 150); pdf.text('N/A', W - M - 100, y)
+      } else if (ans) {
+        pdf.setTextColor(80, 80, 80); pdf.text(ans, W - M - 100, y)
+      } else {
+        pdf.setTextColor(200, 200, 200); pdf.text('—', W - M - 100, y)
+      }
+
+      if (item.notes) {
+        pdf.setFont('helvetica', 'normal'); pdf.setTextColor(130, 130, 130); pdf.setFontSize(8)
+        pdf.text(item.notes.substring(0, 30), W - M, y, { align: 'right' })
+      }
+
+      y += 16
+      pdf.setDrawColor(240, 240, 240); pdf.setLineWidth(0.3); pdf.line(M + 20, y - 4, W - M, y - 4)
+    })
+    y += 10
+  })
+
+  // Signatures
+  checkPage(80); y += 20
+  pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(0.5)
+  pdf.line(M, y + 30, M + 200, y + 30)
+  pdf.line(W - M - 200, y + 30, W - M, y + 30)
+  pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
+  pdf.text('Inspector Signature', M, y + 42)
+  pdf.text('Client/Owner Signature', W - M - 200, y + 42)
+
+  const filename = `${doc.documentNumber || 'inspection'}.pdf`
+  pdf.save(filename)
+  return filename
+}
+
+// ---- Proposals & Contracts ----
+
+function generateProposalPDF(doc: any): string {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
+  const W = pdf.internal.pageSize.getWidth()
+  const H = pdf.internal.pageSize.getHeight()
+  const M = 60
+  let y = M
+
+  const checkPage = (need: number) => { if (y + need > H - M) { pdf.addPage(); y = M } }
+
+  let meta: any = {}
+  try { meta = JSON.parse(doc.terms || '{}') } catch { /* noop */ }
+
+  // Cover page
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(150, 150, 150)
+  pdf.text(doc.type === 'contract' ? 'SERVICE AGREEMENT' : 'PROPOSAL', M, y); y += 30
+
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(28); pdf.setTextColor(30, 30, 30)
+  const title = meta.title || doc.documentNumber || 'Proposal'
+  const titleLines = pdf.splitTextToSize(title, W - M * 2)
+  titleLines.forEach((line: string) => { pdf.text(line, M, y); y += 34 })
+
+  if (meta.projectName) {
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(14); pdf.setTextColor(100, 100, 100)
+    pdf.text(meta.projectName, M, y); y += 30
+  }
+
+  // Prepared by/for at bottom of cover
+  y = H - 200
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
+  pdf.text('PREPARED BY', M, y); pdf.text('PREPARED FOR', W / 2 + 20, y); y += 14
+  pdf.setFontSize(11); pdf.setTextColor(30, 30, 30)
+  pdf.text(doc.companyName || '—', M, y); pdf.text(doc.clientName || '—', W / 2 + 20, y); y += 14
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(100, 100, 100)
+  if (meta.companyAddress || doc.companyAddress) pdf.text(meta.companyAddress || doc.companyAddress, M, y)
+  if (meta.clientAddress || doc.clientAddress) pdf.text(meta.clientAddress || doc.clientAddress, W / 2 + 20, y)
+  y += 20
+  pdf.setFontSize(9); pdf.setTextColor(150, 150, 150)
+  pdf.text(meta.date || doc.dateIssued || '', M, y)
+
+  // Cover border
+  pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(3); pdf.line(M, H - 140, W - M, H - 140)
+
+  // Content pages
+  pdf.addPage(); y = M
+
+  const sections = meta.sections || (doc.lineItems || []).map((li: any) => {
+    const desc = li.description || ''
+    if (desc.startsWith('__section__:')) {
+      const parts = desc.replace('__section__:', '').split(':')
+      return { type: parts[0] || 'text', title: parts[1] || '', content: li.content || '' }
+    }
+    return { type: 'text', title: '', content: li.content || li.description || '' }
+  })
+
+  sections.forEach((s: any) => {
+    if (s.type === 'pagebreak') { pdf.addPage(); y = M; return }
+
+    if (s.type === 'heading') {
+      checkPage(30)
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(14); pdf.setTextColor(30, 30, 30)
+      pdf.text(s.title || '', M, y); y += 6
+      pdf.setDrawColor(220, 220, 220); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 18
+      return
+    }
+
+    if (s.content) {
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(60, 60, 60)
+      const lines = pdf.splitTextToSize(s.content, W - M * 2)
+      lines.forEach((line: string) => { checkPage(14); pdf.text(line, M, y); y += 14 })
+      y += 10
+    }
+  })
+
+  // Signature block
+  checkPage(100); y += 30
+  pdf.setDrawColor(200, 200, 200); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 30
+
+  pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(0.5)
+  pdf.line(M, y + 40, M + 200, y + 40)
+  pdf.line(W - M - 200, y + 40, W - M, y + 40)
+
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
+  pdf.text('Company Representative', M, y + 52)
+  pdf.text('Client', W - M - 200, y + 52)
+  pdf.setFontSize(9); pdf.setTextColor(80, 80, 80)
+  pdf.text(doc.companyName || '', M, y + 64)
+  pdf.text(doc.clientName || '', W - M - 200, y + 64)
+  pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
+  pdf.text('Date: ____________', M, y + 80)
+  pdf.text('Date: ____________', W - M - 200, y + 80)
+
+  const filename = `${doc.documentNumber || doc.type || 'proposal'}.pdf`
+  pdf.save(filename)
+  return filename
+}

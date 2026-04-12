@@ -1,0 +1,411 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===================================
+   ROOT & THEME VARIABLES
+   =================================== */
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-rgb: 255, 255, 255;
+}
+
+.dark {
+  --foreground-rgb: 255, 255, 255;
+  --background-rgb: 0, 0, 0;
+}
+
+/* ===================================
+   BASE STYLES - EXTENDED BACKGROUND
+   =================================== */
+html {
+  @apply bg-white dark:bg-black;
+  overflow: auto;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-white dark:bg-black;
+  color: rgb(var(--foreground-rgb));
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-width: 100vw;
+  max-width: 100vw;
+  overflow: auto;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  html, body {
+    overflow-x: hidden;
+    position: relative;
+    width: 100%;
+    max-width: 100vw;
+  }
+}
+
+#__next {
+  @apply bg-white dark:bg-black;
+  min-height: 100vh;
+  min-width: 100vw;
+}
+
+/* ===================================
+   CUSTOM SCROLLBARS
+   =================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-gray-900;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 dark:bg-gray-700;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400 dark:bg-gray-600;
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(209, 213, 219) rgb(243, 244, 246);
+}
+
+.dark * {
+  scrollbar-color: rgb(55, 65, 81) rgb(17, 24, 39);
+}
+
+/* ===================================
+   SMOOTH SCROLLING
+   =================================== */
+* {
+  scroll-behavior: smooth;
+}
+
+/* ===================================
+   ANIMATIONS
+   =================================== */
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slideIn {
+  animation: slideIn 0.3s ease-out forwards;
+}
+
+.animate-modalIn {
+  animation: modalIn 0.2s ease-out forwards;
+}
+
+.animate-pulse-slow {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ===================================
+   WINDOW & MODAL STYLES
+   =================================== */
+.window-shadow {
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.dark .window-shadow {
+  box-shadow: 
+    0 10px 15px -3px rgba(0, 0, 0, 0.5),
+    0 4px 6px -2px rgba(0, 0, 0, 0.3);
+}
+
+.modal-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ===================================
+   FOCUS STYLES
+   =================================== */
+*:focus-visible {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+}
+
+.dark *:focus-visible {
+  @apply ring-offset-black;
+}
+
+/* ===================================
+   SELECTION STYLES
+   =================================== */
+::selection {
+  @apply bg-blue-500 text-white;
+}
+
+.dark ::selection {
+  @apply bg-blue-600 text-white;
+}
+
+/* ===================================
+   LOADING STATES
+   =================================== */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* ===================================
+   TRANSITIONS
+   =================================== */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-fast {
+  transition: all 0.15s ease-out;
+}
+
+/* ===================================
+   CUSTOM UTILITIES
+   =================================== */
+.glass-effect {
+  @apply bg-white/80 dark:bg-gray-900/80;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, 
+    rgb(var(--background-rgb)) 0%, 
+    rgba(var(--background-rgb), 0.95) 100%);
+}
+
+/* ===================================
+   PREVENT OVERFLOW ISSUES
+   =================================== */
+#__next {
+  overflow: visible;
+}
+
+/* ===================================
+   CHART TOOLTIPS (Recharts)
+   =================================== */
+.recharts-tooltip-wrapper {
+  z-index: 1000 !important;
+}
+
+.recharts-default-tooltip {
+  @apply bg-white dark:bg-gray-800 !important;
+  @apply border border-gray-200 dark:border-gray-700 !important;
+  @apply rounded-lg shadow-lg !important;
+}
+
+/* ===================================
+   TABLE STYLES
+   =================================== */
+.table-hover-row:hover {
+  @apply bg-gray-50 dark:bg-gray-800/50;
+}
+
+.table-striped:nth-child(even) {
+  @apply bg-gray-50 dark:bg-gray-900/30;
+}
+
+/* ===================================
+   BUTTON STATES
+   =================================== */
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800;
+  @apply text-white font-medium;
+  @apply px-4 py-2 rounded-lg;
+  @apply transition-colors duration-200;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 hover:bg-gray-300 active:bg-gray-400;
+  @apply dark:bg-gray-700 dark:hover:bg-gray-600 dark:active:bg-gray-500;
+  @apply text-gray-900 dark:text-gray-100 font-medium;
+  @apply px-4 py-2 rounded-lg;
+  @apply transition-colors duration-200;
+}
+
+/* ===================================
+   CARD STYLES
+   =================================== */
+.card {
+  @apply bg-white dark:bg-gray-800;
+  @apply border border-gray-200 dark:border-gray-700;
+  @apply rounded-lg shadow-sm;
+  @apply p-6;
+}
+
+.card-hover {
+  @apply transition-all duration-200;
+  @apply hover:shadow-md hover:scale-[1.01];
+}
+
+/* ===================================
+   TOAST NOTIFICATIONS
+   =================================== */
+.toast-enter {
+  animation: slideIn 0.3s ease-out;
+}
+
+.toast-exit {
+  animation: fadeIn 0.3s ease-out reverse;
+}
+
+/* ===================================
+   RESPONSIVE UTILITIES
+   =================================== */
+@media (max-width: 640px) {
+  .hide-on-mobile {
+    display: none;
+  }
+}
+
+@media (min-width: 641px) {
+  .show-on-mobile {
+    display: none;
+  }
+}
+
+/* ===================================
+   PRINT STYLES
+   =================================== */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}
+
+/* ===================================
+   ACCESSIBILITY
+   =================================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip to main content link */
+.skip-link {
+  @apply absolute top-0 left-0;
+  @apply bg-blue-600 text-white;
+  @apply px-4 py-2 rounded-br-lg;
+  @apply transform -translate-y-full;
+  @apply focus:translate-y-0;
+  @apply transition-transform;
+  z-index: 9999;
+}
+
+/* ===================================
+   PERFORMANCE OPTIMIZATIONS
+   =================================== */
+.gpu-accelerate {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ===================================
+   PREVENT TEXT SELECTION (where needed)
+   =================================== */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
+/* ===================================
+   CUSTOM PROPERTIES FOR CHARTS
+   =================================== */
+:root {
+  --chart-1: #3b82f6;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ec4899;
+}
+
+.dark {
+  --chart-1: #60a5fa;
+  --chart-2: #34d399;
+  --chart-3: #fbbf24;
+  --chart-4: #a78bfa;
+  --chart-5: #f472b6;
+}
+
+@keyframes popup-in {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
