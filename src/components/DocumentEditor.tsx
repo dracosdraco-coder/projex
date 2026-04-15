@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { X, Plus, Trash2, Save, Download, Eye, Copy } from 'lucide-react'
 
 interface LineItem {
@@ -35,21 +35,34 @@ function FormInput({ label, value, onChange, type: t = 'text', className = '' }:
 }
 
 export default function DocumentEditor({ document, type, lineItemTemplates = [], projects = [], onSave, onClose, onExportPDF }: DocumentEditorProps) {
-  const [companyName, setCompanyName] = useState(document?.companyName || 'Your Company')
-  const [companyAddress, setCompanyAddress] = useState(document?.companyAddress || '')
-  const [companyPhone, setCompanyPhone] = useState(document?.companyPhone || '')
-  const [companyEmail, setCompanyEmail] = useState(document?.companyEmail || '')
-  const [clientName, setClientName] = useState(document?.clientName || '')
-  const [clientAddress, setClientAddress] = useState(document?.clientAddress || '')
-  const [clientEmail, setClientEmail] = useState(document?.clientEmail || '')
-  const [clientPhone, setClientPhone] = useState(document?.clientPhone || '')
-  const [projectId, setProjectId] = useState(document?.projectId || '')
-  const [docNumber, setDocNumber] = useState(document?.documentNumber || `${type.toUpperCase().slice(0, 3)}-${String(Date.now()).slice(-6)}`)
-  const [dateIssued, setDateIssued] = useState(document?.dateIssued || new Date().toISOString().split('T')[0])
-  const [dateDue, setDateDue] = useState(document?.dateDue || '')
-  const [terms, setTerms] = useState(document?.terms || 'Payment due within 30 days of invoice date.')
-  const [notes, setNotes] = useState(document?.notes || '')
-  const [taxRate, setTaxRate] = useState(document?.taxRate || 0)
+  // Draft persistence — only for new documents (no existing id)
+  const DRAFT_KEY = !document?.id ? `projex_draft_doc_${type}` : null
+
+  const readDraft = () => {
+    if (!DRAFT_KEY || typeof window === 'undefined') return null
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') } catch { return null }
+  }
+  const draft = readDraft()
+
+  const clearDocDraft = () => {
+    if (DRAFT_KEY) try { localStorage.removeItem(DRAFT_KEY) } catch {}
+  }
+
+  const [companyName, setCompanyName] = useState(draft?.companyName ?? document?.companyName ?? 'Your Company')
+  const [companyAddress, setCompanyAddress] = useState(draft?.companyAddress ?? document?.companyAddress ?? '')
+  const [companyPhone, setCompanyPhone] = useState(draft?.companyPhone ?? document?.companyPhone ?? '')
+  const [companyEmail, setCompanyEmail] = useState(draft?.companyEmail ?? document?.companyEmail ?? '')
+  const [clientName, setClientName] = useState(draft?.clientName ?? document?.clientName ?? '')
+  const [clientAddress, setClientAddress] = useState(draft?.clientAddress ?? document?.clientAddress ?? '')
+  const [clientEmail, setClientEmail] = useState(draft?.clientEmail ?? document?.clientEmail ?? '')
+  const [clientPhone, setClientPhone] = useState(draft?.clientPhone ?? document?.clientPhone ?? '')
+  const [projectId, setProjectId] = useState(draft?.projectId ?? document?.projectId ?? '')
+  const [docNumber, setDocNumber] = useState(draft?.docNumber ?? document?.documentNumber ?? `${type.toUpperCase().slice(0, 3)}-${String(Date.now()).slice(-6)}`)
+  const [dateIssued, setDateIssued] = useState(draft?.dateIssued ?? document?.dateIssued ?? new Date().toISOString().split('T')[0])
+  const [dateDue, setDateDue] = useState(draft?.dateDue ?? document?.dateDue ?? '')
+  const [terms, setTerms] = useState(draft?.terms ?? document?.terms ?? 'Payment due within 30 days of invoice date.')
+  const [notes, setNotes] = useState(draft?.notes ?? document?.notes ?? '')
+  const [taxRate, setTaxRate] = useState(draft?.taxRate ?? document?.taxRate ?? 0)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [showTemplates, setShowTemplates] = useState(false)
@@ -62,6 +75,20 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
       ...li, cost: li.cost ?? li.unitPrice ?? 0, markup: li.markup ?? 0, price: li.price ?? li.unitPrice ?? 0,
     })) || [{ id: '1', description: '', quantity: 1, unit: 'ea', cost: 0, markup: 20, price: 0 }]
   )
+
+  // Auto-save header fields to draft (new docs only)
+  useEffect(() => {
+    if (!DRAFT_KEY) return
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({
+        companyName, companyAddress, companyPhone, companyEmail,
+        clientName, clientAddress, clientEmail, clientPhone,
+        projectId, docNumber, dateIssued, dateDue, terms, notes, taxRate,
+      }))
+    } catch {}
+  }, [DRAFT_KEY, companyName, companyAddress, companyPhone, companyEmail,
+      clientName, clientAddress, clientEmail, clientPhone,
+      projectId, docNumber, dateIssued, dateDue, terms, notes, taxRate])
 
   const updateLineItem = (id: string, field: string, value: any) => {
     setLineItems(prev => prev.map(li => {
@@ -109,6 +136,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
     setSaving(true); setSaveError('')
     try {
       await onSave(buildSaveData())
+      clearDocDraft()
     } catch (err: any) {
       setSaveError(err?.message || 'Save failed. Check required fields.')
     } finally { setSaving(false) }
@@ -118,6 +146,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
     setSaving(true); setSaveError('')
     try {
       await onSave(buildSaveData())
+      clearDocDraft()
       onExportPDF?.(document?.id || 'new')
     } catch (err: any) {
       setSaveError(err?.message || 'Save failed before export.')

@@ -7,6 +7,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, CheckCircle, Clock,
   AlertTriangle, PieChart, BarChart3, Search, Check
 } from 'lucide-react'
+import type { Notification } from '@/hooks/useNotifications'
 
 interface AccountingContentProps {
   projects: Project[]
@@ -15,6 +16,7 @@ interface AccountingContentProps {
   totalExpenses: number
   grossProfit: number
   onUpdateDocument?: (id: string, updates: any) => Promise<any>
+  onNotify?: (data: { type: Notification['type']; title: string; body: string; documentId?: string }) => void
 }
 
 type Tab = 'overview' | 'revenue' | 'expenses' | 'pnl'
@@ -25,7 +27,7 @@ const EXPENSE_COLORS: Record<string, string> = {
 }
 
 export default function AccountingContent({
-  projects, documents = [], totalContractAmount, totalExpenses, grossProfit, onUpdateDocument
+  projects, documents = [], totalContractAmount, totalExpenses, grossProfit, onUpdateDocument, onNotify
 }: AccountingContentProps) {
   const [tab, setTab] = useState<Tab>('overview')
   const [search, setSearch] = useState('')
@@ -68,7 +70,18 @@ export default function AccountingContent({
   const handleMarkPaid = async (docId: string) => {
     if (!onUpdateDocument) return
     setMarkingPaid(docId)
-    try { await onUpdateDocument(docId, { status: 'paid', datePaid: new Date().toISOString() }) } catch {}
+    try {
+      await onUpdateDocument(docId, { status: 'paid', datePaid: new Date().toISOString() })
+      const inv = invoices.find((i: any) => i.id === docId)
+      if (onNotify && inv) {
+        onNotify({
+          type: 'payment_received',
+          title: 'Payment Received',
+          body: `Invoice ${inv.documentNumber} marked as paid`,
+          documentId: docId,
+        })
+      }
+    } catch {}
     setMarkingPaid(null)
   }
 

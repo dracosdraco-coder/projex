@@ -40,10 +40,14 @@ const DOCK_ITEMS = [
 
 // App grid in "More" tab — iOS-style organized
 const APP_SECTIONS = [
+  { label: 'Clients', apps: [
+    { id: 'portal', name: 'Client Portal', color: 'bg-blue-600' },
+    { id: 'leads', name: 'Leads', color: 'bg-rose-500' },
+    { id: 'communication', name: 'Email', color: 'bg-blue-400' },
+  ]},
   { label: 'Work', apps: [
     { id: 'tasks', name: 'Tasks', color: 'bg-blue-500' },
     { id: 'calendar', name: 'Calendar', color: 'bg-red-500' },
-    { id: 'leads', name: 'Leads', color: 'bg-rose-500' },
     { id: 'schedule', name: 'Schedule', color: 'bg-orange-500' },
     { id: 'phases', name: 'Phases', color: 'bg-purple-500' },
     { id: 'timeline', name: 'Timeline', color: 'bg-indigo-500' },
@@ -64,7 +68,6 @@ const APP_SECTIONS = [
     { id: 'team', name: 'Team', color: 'bg-blue-600' },
     { id: 'messages', name: 'Messages', color: 'bg-green-500' },
     { id: 'meetings', name: 'Meetings', color: 'bg-violet-500' },
-    { id: 'communication', name: 'Email', color: 'bg-blue-400' },
   ]},
   { label: 'Tools', apps: [
     { id: 'drawings', name: 'Drawings', color: 'bg-gray-600' },

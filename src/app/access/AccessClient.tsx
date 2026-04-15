@@ -102,6 +102,7 @@ import Onboarding, { HelpButton } from '@/components/Onboarding'
 import { useSubscription } from '@/hooks/useSubscription'
 import { useLeads } from '@/hooks/useLeads'
 import { usePhotos } from '@/hooks/usePhotos'
+import { useCommsLogs } from '@/hooks/useCommsLogs'
 import { meetsMinimumPlan, CARD_PLAN_REQUIREMENTS, PlanId } from '@/lib/stripe-plans'
 
 const DOCK_HEIGHT = 60
@@ -293,12 +294,14 @@ export default function AccessClient() {
   const { notifications, unreadCount, markRead, markAllRead, dismiss: dismissNotification, notify } = useNotifications(user?.id)
   const { leads, loadLeads, createLead, updateLead: updateLeadHook, deleteLead } = useLeads(user?.id, orgId)
   const { photos, loadPhotos, uploadPhoto, deletePhoto } = usePhotos(user?.id, orgId)
+  const { logs: commsLogs, loadLogs: loadCommsLogs, addLog: addCommsLog } = useCommsLogs(user?.id, orgId)
 
-  // Load leads and photos once user/org is available
+  // Load leads, photos, commsLogs once user/org is available
   useEffect(() => {
     if (user?.id) {
       loadLeads()
       loadPhotos()
+      loadCommsLogs()
     }
   }, [user?.id, orgId])
 
@@ -306,13 +309,15 @@ export default function AccessClient() {
   useRealtime({
     userId: user?.id,
     orgId,
-    tables: ['projects', 'tasks', 'generated_documents', 'messages', 'notifications', 'team_members', 'org_members', 'leads', 'photos'],
+    tables: ['projects', 'tasks', 'generated_documents', 'messages', 'notifications', 'team_members', 'org_members', 'leads', 'photos', 'comms_logs'],
     enabled: !!user?.id,
     onEvent: (event) => {
       if (event.table === 'leads') {
         loadLeads()
       } else if (event.table === 'photos') {
         loadPhotos()
+      } else if (event.table === 'comms_logs') {
+        loadCommsLogs()
       } else if (event.table !== 'notifications') {
         refetch()
       }
@@ -1157,7 +1162,53 @@ case 'communication':
   return <CommunicationContent teamMembers={teamMembers} />
 
 case 'drawings':
-  return <DrawingsContent />
+  return <DrawingsContent projectId={projects[0]?.id} />
+
+      case 'portal':
+        return (
+          <div className="h-full flex flex-col bg-gray-50 dark:bg-[#111]">
+            <div className="bg-white dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#2a2a2a] px-6 py-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Client Portals</h2>
+              <p className="text-xs text-gray-500 mt-1">Share read-only project views with your clients</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 space-y-3">
+              {projects.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 text-sm">No projects yet</div>
+              ) : (
+                projects.map((p: any) => {
+                  const portalUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/portal/${p.id}`
+                  return (
+                    <div key={p.id} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{p.name}</h3>
+                          <p className="text-[10px] text-gray-400 mt-0.5 truncate">{p.client || 'No client'}</p>
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 truncate font-mono">{portalUrl}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => navigator.clipboard?.writeText(portalUrl)}
+                            className="px-2.5 py-1.5 text-[10px] font-medium bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-[#333]"
+                          >
+                            Copy
+                          </button>
+                          <a
+                            href={portalUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 text-[10px] font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                          >
+                            Open ↗
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </div>
+        )
 
 case 'maps':
   return <MapsContent projects={projects} />
@@ -1238,6 +1289,7 @@ case 'maps':
             totalExpenses={totalExpenses}
             grossProfit={grossProfit}
             onUpdateDocument={updateGeneratedDocument}
+            onNotify={notify}
           />
         )
 
@@ -1259,6 +1311,8 @@ case 'maps':
             contacts={[]}
             teamMembers={teamMembers}
             projects={projects}
+            commsLogs={commsLogs}
+            onAddCommsLog={addCommsLog}
             onSendEmail={async (data) => {
               await fetch('/api/send-email', {
                 method: 'POST',

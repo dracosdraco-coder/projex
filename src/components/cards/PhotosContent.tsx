@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Camera, Upload, Grid3x3, List, Image, Plus, X, FileText } from 'lucide-react'
+import { Camera, Upload, Grid3x3, List, Image, Plus, X, FileText, Download } from 'lucide-react'
 import type { Photo } from '@/hooks/usePhotos'
 
 interface PhotosContentProps {
@@ -75,6 +75,92 @@ export default function PhotosContent({ projects, photos: photosProp, onUploadPh
     setReportPhotos(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next })
   }
 
+  const exportPhotoReport = async () => {
+    const selectedPhotos = projectPhotos.filter(p => reportPhotos.has(p.id))
+    if (selectedPhotos.length === 0) return
+
+    const { default: jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const pageW = 210
+    const pageH = 297
+    const margin = 15
+    const colW = (pageW - margin * 2 - 6) / 2
+    const rowH = 70
+    const now = new Date().toLocaleDateString()
+
+    // Header
+    doc.setFillColor(17, 17, 17)
+    doc.rect(0, 0, pageW, 28, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.text('PROJEX — Photo Report', margin, 12)
+    doc.setFontSize(8)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Generated: ${now}  |  ${selectedPhotos.length} photos`, margin, 20)
+
+    let x = margin
+    let y = 36
+
+    for (let i = 0; i < selectedPhotos.length; i++) {
+      const photo = selectedPhotos[i]
+      const col = i % 2
+
+      if (col === 0 && i > 0) {
+        y += rowH + 14
+        if (y + rowH > pageH - 20) {
+          doc.addPage()
+          y = 20
+        }
+      }
+      x = margin + col * (colW + 6)
+
+      try {
+        const res = await fetch(photo.url)
+        const blob = await res.blob()
+        const b64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.readAsDataURL(blob)
+        })
+        const ext = photo.name.split('.').pop()?.toUpperCase() || 'JPEG'
+        const imgFmt = ext === 'PNG' ? 'PNG' : 'JPEG'
+        doc.addImage(`data:image/${imgFmt.toLowerCase()};base64,${b64}`, imgFmt, x, y, colW, rowH - 14)
+      } catch {}
+
+      // Category badge
+      const catColors: Record<string, [number, number, number]> = {
+        Before: [59, 130, 246], After: [16, 185, 129], Inspection: [245, 158, 11],
+        Damage: [239, 68, 68], Progress: [139, 92, 246], Completed: [5, 150, 105],
+      }
+      const [cr, cg, cb] = catColors[photo.category] || [107, 114, 128]
+      doc.setFillColor(cr, cg, cb)
+      doc.roundedRect(x, y + rowH - 13, colW, 6, 1, 1, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(6)
+      doc.setFont('helvetica', 'bold')
+      doc.text(photo.category.toUpperCase(), x + 2, y + rowH - 8.5)
+
+      // Caption
+      doc.setTextColor(40, 40, 40)
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'normal')
+      const caption = photo.caption || photo.name
+      doc.text(caption.length > 38 ? caption.slice(0, 35) + '...' : caption, x, y + rowH - 0.5)
+    }
+
+    // Footer
+    const totalPages = (doc as any).internal.getNumberOfPages()
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p)
+      doc.setTextColor(150, 150, 150)
+      doc.setFontSize(6)
+      doc.text('projex.live', pageW / 2, pageH - 6, { align: 'center' })
+    }
+
+    doc.save(`photo-report-${now.replace(/\//g, '-')}.pdf`)
+  }
+
   const projectPhotos = photos.filter(p => !selectedProject || p.projectId === selectedProject)
 
   return (
@@ -116,7 +202,17 @@ export default function PhotosContent({ projects, photos: photosProp, onUploadPh
           <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 p-4">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">Building Photo Report</h3>
-              <span className="text-[10px] text-blue-600 dark:text-blue-400">{reportPhotos.size} selected</span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-blue-600 dark:text-blue-400">{reportPhotos.size} selected</span>
+                {reportPhotos.size > 0 && (
+                  <button
+                    onClick={exportPhotoReport}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 text-white rounded-lg text-[10px] font-medium hover:bg-blue-700"
+                  >
+                    <Download className="w-3 h-3" /> Export PDF
+                  </button>
+                )}
+              </div>
             </div>
             <p className="text-[11px] text-blue-700 dark:text-blue-300 mb-3">Click photos below to select them for the report.</p>
           </div>

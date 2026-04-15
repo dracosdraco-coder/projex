@@ -7,6 +7,7 @@ import {
   Users, ChevronLeft, Mic, MicOff, Video, MoreHorizontal,
   Copy, Check, Star, Archive, Trash2, Loader2, Volume2
 } from 'lucide-react'
+import type { CommsLog } from '@/hooks/useCommsLogs'
 
 // Types
 interface CallLog {
@@ -35,6 +36,8 @@ interface EmailTemplate {
 interface CommsHubProps {
   contacts?: any[]; teamMembers?: any[]; projects?: any[]
   onSendEmail?: (data: { to: string; cc?: string; subject: string; html: string; text: string }) => Promise<void>
+  commsLogs?: CommsLog[]
+  onAddCommsLog?: (entry: Omit<CommsLog, 'id' | 'createdAt'>) => Promise<CommsLog | null>
 }
 
 type Tab = 'calls' | 'messages' | 'email' | 'templates'
@@ -48,7 +51,7 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
   { id: 't6', name: 'Schedule Inspection', subject: 'Inspection Scheduled: {project}', body: 'Hi {name},\n\nAn inspection has been scheduled for {project}:\n\n• Date: {date}\n• Time: {time}\n• Location: {address}\n\nPlease ensure access is available.\n\nBest,\n{company}', category: 'custom' },
 ]
 
-export default function CommsHubContent({ contacts = [], teamMembers = [], projects = [], onSendEmail }: CommsHubProps) {
+export default function CommsHubContent({ contacts = [], teamMembers = [], projects = [], onSendEmail, commsLogs, onAddCommsLog }: CommsHubProps) {
   const [tab, setTab] = useState<Tab>('messages')
   const [search, setSearch] = useState('')
 
@@ -91,6 +94,53 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
     return people
   }, [contacts, teamMembers])
 
+  // Hydrate callLogs and conversations from persisted commsLogs on mount
+  useEffect(() => {
+    if (!commsLogs || commsLogs.length === 0) return
+
+    // Rebuild CallLog[] from call entries
+    const hydratedCalls: CallLog[] = commsLogs
+      .filter(l => l.type === 'call_outgoing' || l.type === 'call_incoming')
+      .map(l => ({
+        id: l.id,
+        contactName: l.contactName,
+        contactPhone: l.contactPhone,
+        type: l.type === 'call_outgoing' ? 'outgoing' : 'incoming',
+        duration: l.durationSeconds,
+        timestamp: l.createdAt,
+        notes: l.notes,
+      }))
+
+    if (hydratedCalls.length > 0) setCallLogs(hydratedCalls)
+
+    // Rebuild TextConversation[] from SMS entries grouped by contactPhone
+    const smsEntries = commsLogs.filter(l => l.type === 'sms_sent' || l.type === 'sms_received')
+    if (smsEntries.length > 0) {
+      const grouped: Record<string, TextConversation> = {}
+      smsEntries.forEach(l => {
+        const phone = l.contactPhone
+        if (!grouped[phone]) {
+          grouped[phone] = { contactName: l.contactName, contactPhone: phone, messages: [], lastMessage: '', lastTimestamp: l.createdAt, unread: 0 }
+        }
+        const msg: TextMessage = {
+          id: l.id,
+          contactName: l.type === 'sms_sent' ? 'You' : l.contactName,
+          contactPhone: phone,
+          content: l.body,
+          direction: l.type === 'sms_sent' ? 'sent' : 'received',
+          timestamp: l.createdAt,
+          status: (['sent', 'delivered', 'read'].includes(l.status) ? l.status : 'delivered') as 'sent' | 'delivered' | 'read',
+        }
+        grouped[phone].messages.push(msg)
+        if (new Date(l.createdAt) > new Date(grouped[phone].lastTimestamp)) {
+          grouped[phone].lastMessage = l.body
+          grouped[phone].lastTimestamp = l.createdAt
+        }
+      })
+      setConversations(Object.values(grouped))
+    }
+  }, [commsLogs])
+
   // Scroll to bottom on new message
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [activeConvo, conversations])
 
@@ -109,10 +159,25 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
       }
     }
 
-    setCallLogs(prev => [{
+    const newLog: CallLog = {
       id: `call-${Date.now()}`, contactName, contactPhone, type, duration,
       timestamp: new Date().toISOString(), notes: callNotes,
-    }, ...prev])
+    }
+    setCallLogs(prev => [newLog, ...prev])
+
+    // Persist to DB
+    if (onAddCommsLog) {
+      onAddCommsLog({
+        type: type === 'outgoing' ? 'call_outgoing' : 'call_incoming',
+        contactName, contactPhone,
+        body: callNotes,
+        durationSeconds: duration,
+        twilioSid: '',
+        status: 'completed',
+        notes: callNotes,
+      }).catch(() => {})
+    }
+
     setCallNotes('')
     setShowNewCall(false)
   }
@@ -132,6 +197,7 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
       })
       const data = await res.json()
 
+      const convo = conversations.find(c => c.contactPhone === activeConvo)
       const msg: TextMessage = {
         id: data.sid || `msg-${Date.now()}`, contactName: 'You', contactPhone: activeConvo,
         content: newMessageText.trim(), direction: 'sent',
@@ -142,6 +208,18 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
           ? { ...c, messages: [...c.messages, msg], lastMessage: msg.content, lastTimestamp: msg.timestamp }
           : c
       ))
+      if (onAddCommsLog) {
+        onAddCommsLog({
+          type: 'sms_sent',
+          contactName: convo?.contactName || activeConvo,
+          contactPhone: activeConvo,
+          body: newMessageText.trim(),
+          durationSeconds: 0,
+          twilioSid: data.sid || '',
+          status: data.success ? 'delivered' : 'sent',
+          notes: '',
+        }).catch(() => {})
+      }
     } catch {
       // Fallback — still show the message locally
       const msg: TextMessage = {

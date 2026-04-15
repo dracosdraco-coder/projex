@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { X, Plus, Trash2, Save, Eye, ChevronUp, ChevronDown } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, Plus, Trash2, Save, Eye, ChevronUp, ChevronDown, Download, RotateCcw } from 'lucide-react'
 
 interface InspectionItem {
   id: string; question: string; type: 'pass_fail' | 'yes_no' | 'text'
@@ -37,15 +37,40 @@ const DEFAULT_TEMPLATES = [
 const mkItem = (q: string): InspectionItem => ({ id: String(Date.now() + Math.random()), question: q, type: 'pass_fail', answer: '', notes: '' })
 
 export default function InspectionFormBuilder({ isOpen, onClose, onSave, document, projects = [], templates = [] }: InspectionFormBuilderProps) {
-  const [title, setTitle] = useState(document?.title || 'Inspection Report')
-  const [projectId, setProjectId] = useState(document?.projectId || '')
-  const [inspector, setInspector] = useState(document?.inspector || '')
-  const [date, setDate] = useState(document?.date || new Date().toISOString().split('T')[0])
-  const [location, setLocation] = useState(document?.location || '')
+  const DRAFT_KEY = document?.id
+    ? `projex_draft_inspection_${document.id}`
+    : 'projex_draft_inspection_new'
+
+  const readDraft = () => {
+    if (document || typeof window === 'undefined') return null
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null') } catch { return null }
+  }
+  const draft = readDraft()
+
+  const [hasDraft, setHasDraft] = useState(!!draft)
+  const [title, setTitle] = useState(draft?.title ?? document?.title ?? 'Inspection Report')
+  const [projectId, setProjectId] = useState(draft?.projectId ?? document?.projectId ?? '')
+  const [inspector, setInspector] = useState(draft?.inspector ?? document?.inspector ?? '')
+  const [date, setDate] = useState(draft?.date ?? document?.date ?? new Date().toISOString().split('T')[0])
+  const [location, setLocation] = useState(draft?.location ?? document?.location ?? '')
   const [showPreview, setShowPreview] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null)
+
+  const clearInspectionDraft = () => {
+    try { localStorage.removeItem(DRAFT_KEY) } catch {}
+    setHasDraft(false)
+  }
+
+  // Auto-save draft fields (new inspections only)
+  useEffect(() => {
+    if (document) return
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, projectId, inspector, date, location }))
+      setHasDraft(true)
+    } catch {}
+  }, [title, projectId, inspector, date, location])
 
   const [sections, setSections] = useState<InspectionSection[]>(
     document?.sections || [{ id: '1', title: 'General', items: [mkItem('Item to inspect')] }]
@@ -96,8 +121,101 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
         })),
         subtotal: 0, taxTotal: 0, total: 0, status: document?.status || 'draft',
       })
+      clearInspectionDraft()
     } catch (err: any) { setSaveError(err?.message || 'Save failed.') }
     finally { setSaving(false) }
+  }
+
+  const exportInspectionPDF = async () => {
+    const { default: jsPDF } = await import('jspdf')
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const pageW = 210
+    const margin = 15
+    let y = 0
+
+    // Header
+    doc.setFillColor(17, 17, 17)
+    doc.rect(0, 0, pageW, 32, 'F')
+    doc.setTextColor(255, 255, 255)
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.text(title, margin, 12)
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'normal')
+    doc.text(`Inspector: ${inspector || '—'}  |  Date: ${date}  |  Location: ${location || '—'}`, margin, 20)
+    doc.text(`Project: ${projects.find((p: any) => p.id === projectId)?.name || '—'}`, margin, 27)
+
+    y = 40
+
+    // Summary bar
+    doc.setFillColor(240, 240, 240)
+    doc.roundedRect(margin, y, pageW - margin * 2, 10, 2, 2, 'F')
+    doc.setTextColor(40, 40, 40)
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(22, 163, 74)
+    doc.text(`✓ ${passed} Pass`, margin + 4, y + 6.5)
+    doc.setTextColor(220, 38, 38)
+    doc.text(`✗ ${failed} Fail`, margin + 30, y + 6.5)
+    doc.setTextColor(107, 114, 128)
+    doc.text(`— ${na} N/A`, margin + 56, y + 6.5)
+    doc.text(`⏳ ${pending} Pending`, margin + 80, y + 6.5)
+
+    y += 16
+
+    for (const section of sections) {
+      if (y > 270) { doc.addPage(); y = 20 }
+      doc.setFillColor(50, 50, 50)
+      doc.rect(margin, y, pageW - margin * 2, 7, 'F')
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.text(section.title.toUpperCase(), margin + 3, y + 5)
+      y += 10
+
+      for (const item of section.items) {
+        if (y > 275) { doc.addPage(); y = 20 }
+        const ans = item.answer
+
+        // Answer badge color
+        let [br, bg, bb] = [107, 114, 128]
+        if (ans === 'pass' || ans === 'yes') [br, bg, bb] = [22, 163, 74]
+        else if (ans === 'fail' || ans === 'no') [br, bg, bb] = [220, 38, 38]
+
+        doc.setFillColor(br, bg, bb)
+        doc.roundedRect(margin, y, 18, 5, 1, 1, 'F')
+        doc.setTextColor(255, 255, 255)
+        doc.setFontSize(6)
+        doc.setFont('helvetica', 'bold')
+        const label = ans ? ans.toUpperCase() : 'PEND'
+        doc.text(label, margin + 9, y + 3.5, { align: 'center' })
+
+        doc.setTextColor(40, 40, 40)
+        doc.setFontSize(7.5)
+        doc.setFont('helvetica', 'normal')
+        doc.text(item.question || '—', margin + 22, y + 3.5)
+        y += 7
+
+        if (item.notes) {
+          doc.setTextColor(100, 100, 100)
+          doc.setFontSize(6.5)
+          doc.text(`Notes: ${item.notes}`, margin + 24, y)
+          y += 5
+        }
+      }
+      y += 4
+    }
+
+    // Footer
+    const totalPages = (doc as any).internal.getNumberOfPages()
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p)
+      doc.setTextColor(150)
+      doc.setFontSize(6)
+      doc.text('projex.live', pageW / 2, 292, { align: 'center' })
+    }
+
+    doc.save(`${title.replace(/\s+/g, '-')}-${date}.pdf`)
   }
 
   const allItems = sections.flatMap(s => s.items)
@@ -131,7 +249,13 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
           </div>
           <div className="flex items-center gap-1.5">
             {saveError && <span className="text-[10px] text-red-500 mr-2">{saveError}</span>}
+            {!document && hasDraft && (
+              <button onClick={clearInspectionDraft} className="flex items-center gap-0.5 px-1.5 py-1 text-[10px] text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg">
+                <RotateCcw className="w-2.5 h-2.5" /> Clear Draft
+              </button>
+            )}
             <button onClick={() => setShowPreview(!showPreview)} className="px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#333] rounded-lg flex items-center gap-1"><Eye className="w-3 h-3" /> Preview</button>
+            <button onClick={exportInspectionPDF} className="px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#333] rounded-lg flex items-center gap-1"><Download className="w-3 h-3" /> PDF</button>
             <button onClick={handleSave} disabled={saving} className="px-3 py-1 text-[10px] font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"><Save className="w-3 h-3" /> {saving ? 'Saving...' : 'Save'}</button>
             <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333]"><X className="w-4 h-4" /></button>
           </div>

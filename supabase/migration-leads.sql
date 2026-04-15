@@ -120,3 +120,47 @@ CREATE POLICY "photos_delete" ON public.photos FOR DELETE
       SELECT org_id FROM public.org_members WHERE user_id = auth.uid()
     ))
   );
+
+-- =============================================
+-- COMMS_LOGS TABLE
+-- Persists SMS and call history from CommsHub
+-- =============================================
+
+CREATE TABLE IF NOT EXISTS public.comms_logs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  org_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  type text NOT NULL CHECK (type IN ('sms_sent','sms_received','call_outgoing','call_incoming')),
+  contact_name text DEFAULT '',
+  contact_phone text DEFAULT '',
+  body text DEFAULT '',
+  duration_seconds integer DEFAULT 0,
+  twilio_sid text DEFAULT '',
+  status text DEFAULT '',
+  notes text DEFAULT '',
+  created_at timestamptz DEFAULT now()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_comms_logs_user_id ON public.comms_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_comms_logs_org_id ON public.comms_logs(org_id);
+CREATE INDEX IF NOT EXISTS idx_comms_logs_created_at ON public.comms_logs(created_at DESC);
+
+-- RLS
+ALTER TABLE public.comms_logs ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "comms_logs_all" ON public.comms_logs;
+
+CREATE POLICY "comms_logs_all" ON public.comms_logs FOR ALL
+  USING (
+    auth.uid() = user_id
+    OR (org_id IS NOT NULL AND org_id IN (
+      SELECT org_id FROM public.org_members WHERE user_id = auth.uid()
+    ))
+  )
+  WITH CHECK (
+    auth.uid() = user_id
+    OR (org_id IS NOT NULL AND org_id IN (
+      SELECT org_id FROM public.org_members WHERE user_id = auth.uid()
+    ))
+  );

@@ -38,7 +38,12 @@ const COLORS = ['#000000', '#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6'
 const PAGE_W = 1056
 const PAGE_H = 816
 
-export default function DrawingsContent() {
+interface DrawingsContentProps {
+  projectId?: string
+}
+
+export default function DrawingsContent({ projectId }: DrawingsContentProps) {
+  const DRAWING_KEY = projectId ? `projex_drawing_${projectId}` : 'projex_drawing'
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [tool, setTool] = useState<Tool>('line')
@@ -67,14 +72,14 @@ export default function DrawingsContent() {
   // Load saved drawing from localStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('projex_drawing')
+      const saved = localStorage.getItem(DRAWING_KEY)
       if (saved) {
         const data = JSON.parse(saved)
         if (data.elements) setElements(data.elements)
         if (data.titleBlock) setTitleBlock(data.titleBlock)
       }
     } catch {}
-  }, [])
+  }, [DRAWING_KEY])
 
   // Auto-save drawing on changes (debounced)
   const saveTimeout = useRef<NodeJS.Timeout | null>(null)
@@ -84,13 +89,13 @@ export default function DrawingsContent() {
     saveTimeout.current = setTimeout(() => {
       try {
         const data = { elements, titleBlock, savedAt: new Date().toISOString() }
-        localStorage.setItem('projex_drawing', JSON.stringify(data))
+        localStorage.setItem(DRAWING_KEY, JSON.stringify(data))
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus('idle'), 1500)
       } catch {}
     }, 1000)
     return () => { if (saveTimeout.current) clearTimeout(saveTimeout.current) }
-  }, [elements, titleBlock])
+  }, [elements, titleBlock, DRAWING_KEY])
 
   const getCoords = useCallback((e: React.MouseEvent) => {
     const c = canvasRef.current; if (!c) return { x: 0, y: 0 }

@@ -4,10 +4,10 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { RealtimeChannel } from '@supabase/supabase-js'
 
-type TableName = 'projects' | 'tasks' | 'phases' | 'generated_documents' | 'expenses' | 
+type TableName = 'projects' | 'tasks' | 'phases' | 'generated_documents' | 'expenses' |
   'team_members' | 'messages' | 'events' | 'meetings' | 'branches' | 'documents' |
   'line_item_templates' | 'form_templates' | 'notifications' | 'org_members' |
-  'leads' | 'photos'
+  'leads' | 'photos' | 'comms_logs'
 
 interface RealtimeEvent {
   table: TableName
