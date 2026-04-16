@@ -1354,7 +1354,7 @@ case 'maps':
         <div className="max-w-4xl w-full">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight mb-2">Choose your plan</h1>
-            <p className="text-gray-500 dark:text-gray-400">Start your 14-day free trial. No credit card required upfront.</p>
+            <p className="text-gray-500 dark:text-gray-400">Start your 7-day free trial. No credit card required.</p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {([
@@ -1398,7 +1398,7 @@ case 'maps':
     <RolesProvider userId={user?.id}>
     <FileProvider>
       {/* Trial banner */}
-      {subscription.isTrialing && subscription.trialDaysLeft > 0 && subscription.trialDaysLeft <= 7 && (
+      {subscription.isTrialing && subscription.trialDaysLeft > 0 && (
         <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800/30 px-4 py-2 text-center text-sm shrink-0 z-[300] relative">
           <span className="text-amber-800 dark:text-amber-200">
             {subscription.trialDaysLeft} day{subscription.trialDaysLeft !== 1 ? 's' : ''} left in your trial.

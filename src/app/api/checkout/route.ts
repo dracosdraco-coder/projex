@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://projex.live'}/access?checkout=success`,
       cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://projex.live'}/#pricing`,
       subscription_data: {
-        trial_period_days: 14,
+        trial_period_days: 7,
         metadata: { supabase_user_id: userId, plan_id: planId, interval },
       },
       metadata: { supabase_user_id: userId, plan_id: planId },
