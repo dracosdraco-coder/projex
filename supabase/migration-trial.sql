@@ -104,9 +104,9 @@ BEGIN
   VALUES
     (demo_uid, demo_org_id, demo_proj_id, 'Demo existing cabinets', 'completed', 'high', now() - interval '10 days'),
     (demo_uid, demo_org_id, demo_proj_id, 'Install new plumbing rough-in', 'completed', 'high', now() - interval '5 days'),
-    (demo_uid, demo_org_id, demo_proj_id, 'Cabinet installation', 'in_progress', 'high', now() + interval '3 days'),
-    (demo_uid, demo_org_id, demo_proj_id, 'Countertop template & fabrication', 'pending', 'medium', now() + interval '10 days'),
-    (demo_uid, demo_org_id, demo_proj_id, 'Final inspection', 'pending', 'medium', now() + interval '25 days');
+    (demo_uid, demo_org_id, demo_proj_id, 'Cabinet installation', 'in-progress', 'high', now() + interval '3 days'),
+    (demo_uid, demo_org_id, demo_proj_id, 'Countertop template & fabrication', 'review', 'medium', now() + interval '10 days'),
+    (demo_uid, demo_org_id, demo_proj_id, 'Final inspection', 'todo', 'medium', now() + interval '25 days');
 
   RAISE NOTICE 'Demo account seeded successfully. Org ID: %', demo_org_id;
 END;
