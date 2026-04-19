@@ -1275,7 +1275,7 @@ case 'maps':
             tasks={tasks}
             teamMembers={teamMembers}
             userId={user?.id}
-            orgId={orgId}
+            orgId={orgId ?? undefined}
             onBulkCreateProjects={bulkCreateProjects}
             onBulkCreateTasks={bulkCreateTasks}
             onBulkCreateExpenses={bulkCreateExpenses}
