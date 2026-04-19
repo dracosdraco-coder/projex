@@ -39,6 +39,15 @@ export default function ProposalBuilder({ isOpen, onClose, onSave, document, typ
   const [companyName, setCompanyName] = useState(document?.companyName || 'Your Company')
   const [companyAddress, setCompanyAddress] = useState(document?.companyAddress || '')
   const [date, setDate] = useState(document?.date || new Date().toISOString().split('T')[0])
+  const [sections, setSections] = useState<ProposalSection[]>(document?.sections || [
+    { id: '1', type: 'heading', title: 'Scope of Work', content: '' },
+    { id: '2', type: 'scope', title: '', content: 'Describe the full scope of work here...' },
+    { id: '3', type: 'heading', title: 'Timeline', content: '' },
+    { id: '4', type: 'text', title: '', content: 'Estimated start date: TBD\nEstimated completion: TBD' },
+    { id: '5', type: 'heading', title: 'Terms & Conditions', content: '' },
+    { id: '6', type: 'terms', title: '', content: '1. Payment terms: 50% deposit, 50% upon completion.\n2. All work is guaranteed for 1 year.\n3. Changes to scope require written change order.' },
+  ])
+  const [attachedPDFs, setAttachedPDFs] = useState<AttachedPDF[]>(document?.attachedPdfs || [])
   const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -72,17 +81,6 @@ export default function ProposalBuilder({ isOpen, onClose, onSave, document, typ
   const handleExportPDF = () => {
     try { generateDocumentPDF(buildDocData()) } catch (err) { console.error('PDF error', err) }
   }
-
-  const [sections, setSections] = useState<ProposalSection[]>(document?.sections || [
-    { id: '1', type: 'heading', title: 'Scope of Work', content: '' },
-    { id: '2', type: 'scope', title: '', content: 'Describe the full scope of work here...' },
-    { id: '3', type: 'heading', title: 'Timeline', content: '' },
-    { id: '4', type: 'text', title: '', content: 'Estimated start date: TBD\nEstimated completion: TBD' },
-    { id: '5', type: 'heading', title: 'Terms & Conditions', content: '' },
-    { id: '6', type: 'terms', title: '', content: '1. Payment terms: 50% deposit, 50% upon completion.\n2. All work is guaranteed for 1 year.\n3. Changes to scope require written change order.' },
-  ])
-
-  const [attachedPDFs, setAttachedPDFs] = useState<AttachedPDF[]>(document?.attachedPdfs || [])
 
   const addSection = (sType: ProposalSection['type']) => {
     setSections(prev => [...prev, { id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type: sType, title: sType === 'heading' ? 'New Section' : '', content: sType === 'pagebreak' ? '' : '' }])
