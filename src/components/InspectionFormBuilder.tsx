@@ -53,7 +53,7 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
   const [inspector, setInspector] = useState(draft?.inspector ?? document?.inspector ?? '')
   const [date, setDate] = useState(draft?.date ?? document?.date ?? new Date().toISOString().split('T')[0])
   const [location, setLocation] = useState(draft?.location ?? document?.location ?? '')
-  const [showPreview, setShowPreview] = useState(true)
+  const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null)
@@ -63,18 +63,18 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
     setHasDraft(false)
   }
 
-  // Auto-save draft fields (new inspections only)
+  const [sections, setSections] = useState<InspectionSection[]>(
+    draft?.sections || document?.sections || [{ id: '1', title: 'General', items: [mkItem('Item to inspect')] }]
+  )
+
+  // Auto-save all fields to draft (new inspections only)
   useEffect(() => {
     if (document) return
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, projectId, inspector, date, location }))
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, projectId, inspector, date, location, sections }))
       setHasDraft(true)
     } catch {}
-  }, [title, projectId, inspector, date, location])
-
-  const [sections, setSections] = useState<InspectionSection[]>(
-    document?.sections || [{ id: '1', title: 'General', items: [mkItem('Item to inspect')] }]
-  )
+  }, [title, projectId, inspector, date, location, sections])
 
   const allTemplates = [...DEFAULT_TEMPLATES, ...templates]
 
@@ -261,8 +261,8 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
           </div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
-          <div className={`${showPreview ? 'w-1/2' : 'w-full'} overflow-y-auto border-r border-gray-100 dark:border-[#2a2a2a]`}>
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
+          <div className={`${showPreview ? 'h-[50%] sm:h-full sm:w-1/2' : 'h-full w-full'} overflow-y-auto border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-[#2a2a2a]`}>
             <div className="p-4 space-y-4">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-[10px] text-gray-500 font-medium uppercase">Templates:</span>
@@ -344,7 +344,7 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
           </div>
 
           {showPreview && (
-            <div className="w-1/2 bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-4">
+            <div className="h-[50%] sm:h-full sm:w-1/2 bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-4">
               <div className="bg-white shadow-lg w-full max-w-[612px] rounded-sm" style={{ fontFamily: 'system-ui' }}>
                 <div className="p-8 text-gray-900">
                   <div className="text-center mb-6 pb-4 border-b-2 border-gray-900">

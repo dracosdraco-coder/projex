@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Plus, Trash2, Save, Download, Eye, ChevronUp, ChevronDown, FileText, Paperclip } from 'lucide-react'
+import { generateDocumentPDF } from '@/lib/pdf-generator'
 
 interface ProposalSection {
   id: string
@@ -38,9 +39,39 @@ export default function ProposalBuilder({ isOpen, onClose, onSave, document, typ
   const [companyName, setCompanyName] = useState(document?.companyName || 'Your Company')
   const [companyAddress, setCompanyAddress] = useState(document?.companyAddress || '')
   const [date, setDate] = useState(document?.date || new Date().toISOString().split('T')[0])
-  const [showPreview, setShowPreview] = useState(true)
+  const [showPreview, setShowPreview] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
+
+  // Draft persistence for new documents
+  const DRAFT_KEY = !document?.id ? `projex_draft_${type}_new` : null
+
+  useEffect(() => {
+    if (!DRAFT_KEY) return
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ title, projectId, clientName, clientAddress, companyName, companyAddress, date, sections }))
+    } catch {}
+  }, [DRAFT_KEY, title, projectId, clientName, clientAddress, companyName, companyAddress, date, sections])
+
+  const clearDraft = () => { if (DRAFT_KEY) try { localStorage.removeItem(DRAFT_KEY) } catch {} }
+
+  const buildDocData = () => ({
+    id: document?.id, type,
+    documentNumber: title,
+    projectId: projectId || undefined,
+    clientName: clientName || 'Draft Client',
+    clientAddress, companyName, companyAddress,
+    dateIssued: date,
+    terms: JSON.stringify({ title, projectName, companyAddress, clientAddress, date, sections }),
+    lineItems: sections.map(s => ({ description: `__section__:${s.type}:${s.title}`, content: s.content, imageUrl: s.imageUrl })),
+    attachedPdfs: attachedPDFs.map(p => ({ name: p.name })),
+    subtotal: 0, taxTotal: 0, total: 0,
+    status: document?.status || 'draft',
+  })
+
+  const handleExportPDF = () => {
+    try { generateDocumentPDF(buildDocData()) } catch (err) { console.error('PDF error', err) }
+  }
 
   const [sections, setSections] = useState<ProposalSection[]>(document?.sections || [
     { id: '1', type: 'heading', title: 'Scope of Work', content: '' },
@@ -91,18 +122,8 @@ export default function ProposalBuilder({ isOpen, onClose, onSave, document, typ
   const handleSave = async () => {
     setSaving(true); setSaveError('')
     try {
-      await onSave?.({
-        id: document?.id, type,
-        documentNumber: title,
-        projectId: projectId || undefined, clientName: clientName || 'Draft Client',
-        clientAddress, companyName, companyAddress,
-        dateIssued: date,
-        terms: JSON.stringify({ title, projectName, companyAddress, clientAddress, date, sections }),
-        lineItems: sections.map(s => ({ description: `__section__:${s.type}:${s.title}`, content: s.content, imageUrl: s.imageUrl })),
-        attachedPdfs: attachedPDFs.map(p => ({ name: p.name })),
-        subtotal: 0, taxTotal: 0, total: 0,
-        status: document?.status || 'draft',
-      })
+      await onSave?.(buildDocData())
+      clearDraft()
     } catch (err: any) {
       setSaveError(err?.message || 'Save failed.')
     } finally { setSaving(false) }
@@ -124,12 +145,13 @@ export default function ProposalBuilder({ isOpen, onClose, onSave, document, typ
             {saveError && <span className="text-[10px] text-red-500 mr-2">{saveError}</span>}
             <button onClick={() => setShowPreview(!showPreview)} className="px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#333] rounded-lg flex items-center gap-1"><Eye className="w-3 h-3" /> Preview</button>
             <button onClick={handleSave} disabled={saving} className="px-3 py-1 text-[10px] font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"><Save className="w-3 h-3" /> {saving ? 'Saving...' : 'Save'}</button>
+            <button onClick={handleExportPDF} className="px-3 py-1 text-[10px] font-medium bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 flex items-center gap-1"><Download className="w-3 h-3" /> PDF</button>
             <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333]"><X className="w-4 h-4" /></button>
           </div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden">
-          <div className={`${showPreview ? 'w-1/2' : 'w-full'} overflow-y-auto border-r border-gray-100 dark:border-[#2a2a2a]`}>
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
+          <div className={`${showPreview ? 'h-[50%] sm:h-full sm:w-1/2' : 'h-full w-full'} overflow-y-auto border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-[#2a2a2a]`}>
             <div className="p-5 space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <PBInput label="Title" value={title} onChange={setTitle} />
@@ -224,7 +246,7 @@ export default function ProposalBuilder({ isOpen, onClose, onSave, document, typ
           </div>
 
           {showPreview && (
-            <div className="w-1/2 bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-6">
+            <div className="h-[50%] sm:h-full sm:w-1/2 bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-6">
               <div className="bg-white shadow-lg w-full max-w-[612px] rounded-sm" style={{ fontFamily: 'system-ui' }}>
                 <div className="p-12 min-h-[400px] flex flex-col justify-between border-b-4 border-gray-900">
                   <div>

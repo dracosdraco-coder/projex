@@ -1,16 +1,18 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
-import { 
-  Plug, Download, Upload, FileSpreadsheet, Calendar, DollarSign, MessageSquare, 
+import { useState, useRef, useCallback, useEffect } from 'react'
+import {
+  Plug, Download, Upload, FileSpreadsheet, Calendar, DollarSign, MessageSquare,
   Globe, CheckCircle, AlertCircle, Loader2, FolderOpen, CheckSquare, Receipt,
-  ArrowDownToLine, ArrowUpFromLine, X, ChevronRight, ExternalLink
+  ArrowDownToLine, ArrowUpFromLine, X, ChevronRight, ExternalLink, RefreshCw, Unplug
 } from 'lucide-react'
 
 interface IntegrationsContentProps {
   projects: any[]
   tasks: any[]
   teamMembers: any[]
+  userId?: string
+  orgId?: string
   onBulkCreateProjects?: (data: any[]) => Promise<void>
   onBulkCreateTasks?: (data: any[]) => Promise<void>
   onBulkCreateExpenses?: (data: any[]) => Promise<void>
@@ -21,8 +23,8 @@ type ExportType = 'projects' | 'tasks' | 'expenses' | 'team' | null
 
 const INTEGRATIONS = [
   { id: 'csv', name: 'CSV Import / Export', desc: 'Bulk import projects, tasks, expenses from spreadsheets. Export your data anytime.', icon: FileSpreadsheet, status: 'available' as const, color: 'text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20' },
-  { id: 'quickbooks', name: 'QuickBooks', desc: 'Sync invoices, expenses, and payments with QuickBooks Online.', icon: DollarSign, status: 'coming' as const, color: 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20' },
-  { id: 'gcal', name: 'Google Calendar', desc: 'Sync project milestones and deadlines to Google Calendar.', icon: Calendar, status: 'coming' as const, color: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20' },
+  { id: 'quickbooks', name: 'QuickBooks', desc: 'Sync invoices, expenses, and payments with QuickBooks Online.', icon: DollarSign, status: 'available' as const, color: 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20' },
+  { id: 'gcal', name: 'Google Calendar', desc: 'Sync project deadlines and meetings to Google Calendar.', icon: Calendar, status: 'available' as const, color: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20' },
   { id: 'twilio', name: 'SMS Notifications', desc: 'Send task reminders and project updates via text message.', icon: MessageSquare, status: 'coming' as const, color: 'text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/20' },
   { id: 'portal', name: 'Client Portal', desc: 'Shareable links for clients to view projects, approve docs, and make payments.', icon: Globe, status: 'available' as const, color: 'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20' },
 ]
@@ -58,7 +60,7 @@ const CSV_TEMPLATES: Record<string, { headers: string[]; example: string[][] }> 
   },
 }
 
-export default function IntegrationsContent({ projects, tasks, teamMembers, onBulkCreateProjects, onBulkCreateTasks, onBulkCreateExpenses }: IntegrationsContentProps) {
+export default function IntegrationsContent({ projects, tasks, teamMembers, userId, orgId, onBulkCreateProjects, onBulkCreateTasks, onBulkCreateExpenses }: IntegrationsContentProps) {
   const [activePanel, setActivePanel] = useState<string | null>(null)
   const [importType, setImportType] = useState<ImportType>(null)
   const [exportType, setExportType] = useState<ExportType>(null)
@@ -67,6 +69,64 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, onBu
   const [parsedData, setParsedData] = useState<any[] | null>(null)
   const [fileName, setFileName] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Integration connection status
+  const [integStatus, setIntegStatus] = useState({ quickbooks: false, google: false, quickbooksRealmId: null as string | null })
+  const [syncingQB, setSyncingQB] = useState(false)
+  const [syncingGoogle, setSyncingGoogle] = useState(false)
+  const [syncResult, setSyncResult] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!orgId) return
+    fetch(`/api/integrations/status?orgId=${orgId}`)
+      .then(r => r.json())
+      .then(data => setIntegStatus(data))
+      .catch(() => {})
+  }, [orgId])
+
+  const connectQB = () => {
+    if (!userId || !orgId) return
+    window.location.href = `/api/integrations/quickbooks/connect?userId=${userId}&orgId=${orgId}`
+  }
+
+  const disconnectQB = async () => {
+    if (!orgId) return
+    await fetch('/api/integrations/quickbooks/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId }) })
+    setIntegStatus(s => ({ ...s, quickbooks: false, quickbooksRealmId: null }))
+  }
+
+  const syncQB = async (syncType: string) => {
+    if (!orgId) return
+    setSyncingQB(true); setSyncResult(null)
+    try {
+      const res = await fetch('/api/integrations/quickbooks/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId, syncType }) })
+      const data = await res.json()
+      setSyncResult(data.error ? `Error: ${data.error}` : `Synced ${data.synced} record${data.synced !== 1 ? 's' : ''} to QuickBooks`)
+    } catch (e: any) { setSyncResult(`Error: ${e.message}`) }
+    finally { setSyncingQB(false) }
+  }
+
+  const connectGoogle = () => {
+    if (!userId || !orgId) return
+    window.location.href = `/api/integrations/google/connect?userId=${userId}&orgId=${orgId}`
+  }
+
+  const disconnectGoogle = async () => {
+    if (!orgId) return
+    await fetch('/api/integrations/google/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId }) })
+    setIntegStatus(s => ({ ...s, google: false }))
+  }
+
+  const syncGoogle = async (syncType: string) => {
+    if (!orgId) return
+    setSyncingGoogle(true); setSyncResult(null)
+    try {
+      const res = await fetch('/api/integrations/google/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId, syncType }) })
+      const data = await res.json()
+      setSyncResult(data.error ? `Error: ${data.error}` : `Synced ${data.synced} event${data.synced !== 1 ? 's' : ''} to Google Calendar`)
+    } catch (e: any) { setSyncResult(`Error: ${e.message}`) }
+    finally { setSyncingGoogle(false) }
+  }
 
   // Download CSV template
   const downloadTemplate = (type: string) => {
@@ -208,15 +268,17 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, onBu
             {INTEGRATIONS.map(integ => (
               <button key={integ.id}
                 onClick={() => integ.status === 'available' ? setActivePanel(integ.id) : null}
-                className={`text-left p-5 bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] hover:border-gray-300 dark:hover:border-[#3a3a3a] transition-all group ${integ.status === 'coming' ? 'opacity-60' : ''}`}>
+                className={`text-left p-5 bg-white dark:bg-[#1a1a1a] rounded-xl border transition-all group ${integ.status === 'coming' ? 'opacity-60 border-gray-200 dark:border-[#2a2a2a]' : 'border-gray-200 dark:border-[#2a2a2a] hover:border-gray-300 dark:hover:border-[#3a3a3a]'}`}>
                 <div className="flex items-start justify-between mb-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${integ.color}`}>
                     <integ.icon className="w-5 h-5" />
                   </div>
-                  {integ.status === 'available' ? (
-                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
-                  ) : (
+                  {integ.status === 'coming' ? (
                     <span className="text-[9px] font-semibold text-gray-400 bg-gray-100 dark:bg-[#222] px-2 py-0.5 rounded-full uppercase">Coming Soon</span>
+                  ) : (integ.id === 'quickbooks' && integStatus.quickbooks) || (integ.id === 'gcal' && integStatus.google) ? (
+                    <span className="flex items-center gap-1 text-[9px] font-semibold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full"><CheckCircle className="w-2.5 h-2.5" /> Connected</span>
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition-colors" />
                   )}
                 </div>
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">{integ.name}</h3>
@@ -368,6 +430,154 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, onBu
                     </ul>
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* QuickBooks Panel */}
+        {activePanel === 'quickbooks' && (
+          <div className="max-w-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">QuickBooks Online</h3>
+              {integStatus.quickbooks && (
+                <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 font-medium">
+                  <CheckCircle className="w-3.5 h-3.5" /> Connected
+                </span>
+              )}
+            </div>
+
+            {syncResult && (
+              <div className={`p-3 rounded-lg text-xs ${syncResult.startsWith('Error') ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'}`}>
+                {syncResult}
+              </div>
+            )}
+
+            {!integStatus.quickbooks ? (
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-6">
+                <div className="flex items-start gap-4 mb-5">
+                  <div className="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
+                    <DollarSign className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Connect QuickBooks Online</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Sync your Projex invoices and expenses directly to QuickBooks. You'll be redirected to authorize the connection.</p>
+                  </div>
+                </div>
+                <button onClick={connectQB} className="flex items-center gap-2 px-4 py-2.5 bg-[#2CA01C] hover:bg-[#259118] text-white rounded-xl text-sm font-medium transition-colors">
+                  <DollarSign className="w-4 h-4" /> Connect QuickBooks
+                </button>
+                <p className="mt-3 text-[10px] text-gray-400">Requires QuickBooks Online account. Env vars needed: QB_CLIENT_ID, QB_CLIENT_SECRET</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Sync Data</h4>
+                  <div className="space-y-2">
+                    <button onClick={() => syncQB('invoices')} disabled={syncingQB} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-[#222] rounded-lg hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <Receipt className="w-4 h-4 text-blue-500" />
+                        <div className="text-left">
+                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Sync Invoices</p>
+                          <p className="text-[10px] text-gray-400">Push sent invoices to QuickBooks</p>
+                        </div>
+                      </div>
+                      {syncingQB ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : <RefreshCw className="w-4 h-4 text-gray-400" />}
+                    </button>
+                    <button onClick={() => syncQB('expenses')} disabled={syncingQB} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-[#222] rounded-lg hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <ArrowUpFromLine className="w-4 h-4 text-green-500" />
+                        <div className="text-left">
+                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Sync Expenses</p>
+                          <p className="text-[10px] text-gray-400">Push project expenses to QuickBooks</p>
+                        </div>
+                      </div>
+                      {syncingQB ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : <RefreshCw className="w-4 h-4 text-gray-400" />}
+                    </button>
+                  </div>
+                </div>
+                <button onClick={disconnectQB} className="flex items-center gap-1.5 px-3 py-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                  <Unplug className="w-3.5 h-3.5" /> Disconnect QuickBooks
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Google Calendar Panel */}
+        {activePanel === 'gcal' && (
+          <div className="max-w-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100">Google Calendar</h3>
+              {integStatus.google && (
+                <span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 font-medium">
+                  <CheckCircle className="w-3.5 h-3.5" /> Connected
+                </span>
+              )}
+            </div>
+
+            {syncResult && (
+              <div className={`p-3 rounded-lg text-xs ${syncResult.startsWith('Error') ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'}`}>
+                {syncResult}
+              </div>
+            )}
+
+            {!integStatus.google ? (
+              <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-6">
+                <div className="flex items-start gap-4 mb-5">
+                  <div className="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
+                    <Calendar className="w-6 h-6 text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Connect Google Calendar</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Sync active project deadlines and upcoming meetings directly to your Google Calendar. You'll be redirected to authorize the connection.</p>
+                  </div>
+                </div>
+                <button onClick={connectGoogle} className="flex items-center gap-2 px-4 py-2.5 bg-[#4285F4] hover:bg-[#3367D6] text-white rounded-xl text-sm font-medium transition-colors">
+                  <Calendar className="w-4 h-4" /> Connect Google Calendar
+                </button>
+                <p className="mt-3 text-[10px] text-gray-400">Requires Google account. Env vars needed: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-5">
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Sync to Calendar</h4>
+                  <div className="space-y-2">
+                    <button onClick={() => syncGoogle('projects')} disabled={syncingGoogle} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-[#222] rounded-lg hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <FolderOpen className="w-4 h-4 text-blue-500" />
+                        <div className="text-left">
+                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Sync Project Deadlines</p>
+                          <p className="text-[10px] text-gray-400">Add active project end dates as calendar events</p>
+                        </div>
+                      </div>
+                      {syncingGoogle ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : <RefreshCw className="w-4 h-4 text-gray-400" />}
+                    </button>
+                    <button onClick={() => syncGoogle('meetings')} disabled={syncingGoogle} className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-[#222] rounded-lg hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <Calendar className="w-4 h-4 text-green-500" />
+                        <div className="text-left">
+                          <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Sync Meetings</p>
+                          <p className="text-[10px] text-gray-400">Add upcoming meetings to Google Calendar</p>
+                        </div>
+                      </div>
+                      {syncingGoogle ? <Loader2 className="w-4 h-4 animate-spin text-gray-400" /> : <RefreshCw className="w-4 h-4 text-gray-400" />}
+                    </button>
+                    <button onClick={() => syncGoogle('all')} disabled={syncingGoogle} className="w-full flex items-center justify-between px-4 py-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        <RefreshCw className="w-4 h-4 text-blue-600" />
+                        <div className="text-left">
+                          <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Sync Everything</p>
+                          <p className="text-[10px] text-blue-500 dark:text-blue-400">Projects + meetings</p>
+                        </div>
+                      </div>
+                      {syncingGoogle ? <Loader2 className="w-4 h-4 animate-spin text-blue-400" /> : <RefreshCw className="w-4 h-4 text-blue-400" />}
+                    </button>
+                  </div>
+                </div>
+                <button onClick={disconnectGoogle} className="flex items-center gap-1.5 px-3 py-2 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                  <Unplug className="w-3.5 h-3.5" /> Disconnect Google Calendar
+                </button>
               </div>
             )}
           </div>

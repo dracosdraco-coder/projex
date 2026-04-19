@@ -66,17 +66,18 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [showTemplates, setShowTemplates] = useState(false)
-  const [showPreview, setShowPreview] = useState(true)
+  const [showPreview, setShowPreview] = useState(false)
   const [activeTab, setActiveTab] = useState<'editor' | 'breakdown'>('editor')
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null)
 
   const [lineItems, setLineItems] = useState<LineItem[]>(
+    draft?.lineItems ||
     document?.lineItems?.map((li: any) => ({
       ...li, cost: li.cost ?? li.unitPrice ?? 0, markup: li.markup ?? 0, price: li.price ?? li.unitPrice ?? 0,
     })) || [{ id: '1', description: '', quantity: 1, unit: 'ea', cost: 0, markup: 20, price: 0 }]
   )
 
-  // Auto-save header fields to draft (new docs only)
+  // Auto-save all fields to draft (new docs only)
   useEffect(() => {
     if (!DRAFT_KEY) return
     try {
@@ -84,11 +85,12 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
         companyName, companyAddress, companyPhone, companyEmail,
         clientName, clientAddress, clientEmail, clientPhone,
         projectId, docNumber, dateIssued, dateDue, terms, notes, taxRate,
+        lineItems,
       }))
     } catch {}
   }, [DRAFT_KEY, companyName, companyAddress, companyPhone, companyEmail,
       clientName, clientAddress, clientEmail, clientPhone,
-      projectId, docNumber, dateIssued, dateDue, terms, notes, taxRate])
+      projectId, docNumber, dateIssued, dateDue, terms, notes, taxRate, lineItems])
 
   const updateLineItem = (id: string, field: string, value: any) => {
     setLineItems(prev => prev.map(li => {
@@ -164,10 +166,10 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const pct = (n: number) => `${n.toFixed(1)}%`
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-2" style={{ animation: 'popup-in 0.15s ease-out' }}>
+    <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center sm:p-2" style={{ animation: 'popup-in 0.15s ease-out' }}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative bg-white dark:bg-[#1a1a1a] rounded-2xl w-full max-w-[96vw] h-[93vh] flex flex-col shadow-2xl border border-gray-200 dark:border-[#2a2a2a] overflow-hidden" onClick={e => e.stopPropagation()}>
+      <div className="relative bg-white dark:bg-[#1a1a1a] rounded-t-3xl sm:rounded-2xl w-full sm:max-w-[96vw] h-[96vh] sm:h-[93vh] flex flex-col shadow-2xl border border-gray-200 dark:border-[#2a2a2a] overflow-hidden" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-100 dark:border-[#2a2a2a] flex-shrink-0 bg-gray-50 dark:bg-[#222]">
           <div className="flex items-center gap-3">
@@ -189,9 +191,9 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
         </div>
 
         {/* Split pane */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
           {/* LEFT */}
-          <div className={`${showPreview ? 'w-[55%]' : 'w-full'} flex flex-col overflow-hidden border-r border-gray-100 dark:border-[#2a2a2a]`}>
+          <div className={`${showPreview ? 'h-[50%] sm:h-full sm:w-[55%]' : 'h-full w-full'} flex flex-col overflow-hidden border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-[#2a2a2a]`}>
             <div className="flex border-b border-gray-100 dark:border-[#2a2a2a] px-4 flex-shrink-0 bg-white dark:bg-[#1a1a1a]">
               {(['editor', 'breakdown'] as const).map(tab => (
                 <button key={tab} onClick={() => setActiveTab(tab)}
@@ -366,7 +368,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
 
           {/* RIGHT: Preview */}
           {showPreview && (
-            <div className="w-[45%] bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-4">
+            <div className="h-[50%] sm:h-full sm:w-[45%] bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-4">
               <div className="bg-white shadow-lg w-full max-w-[612px] min-h-[792px] rounded-sm" style={{ fontFamily: 'system-ui' }}>
                 <div className="p-8 text-gray-900 text-[11px] leading-relaxed">
                   <div className="flex justify-between items-start mb-6">

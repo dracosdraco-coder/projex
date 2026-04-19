@@ -40,9 +40,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Projex" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}` }} />
       </head>
       <body className={inter.className}>
-        <AuthProvider>  {/* ✅ WRAP WITH THIS */}
+        <AuthProvider>
           {children}
         </AuthProvider>
       </body>
