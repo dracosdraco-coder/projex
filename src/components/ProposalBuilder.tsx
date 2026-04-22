@@ -73,7 +73,7 @@ export default function ProposalBuilder({ isOpen, onClose, onSave, document, typ
     dateIssued: date,
     terms: JSON.stringify({ title, projectName, companyAddress, clientAddress, date, sections }),
     lineItems: sections.map(s => ({ description: `__section__:${s.type}:${s.title}`, content: s.content, imageUrl: s.imageUrl })),
-    attachedPdfs: attachedPDFs.map(p => ({ name: p.name })),
+    attachedPdfs: attachedPDFs.map(p => ({ name: p.name, dataUrl: p.dataUrl })),
     subtotal: 0, taxTotal: 0, total: 0,
     status: document?.status || 'draft',
   })
