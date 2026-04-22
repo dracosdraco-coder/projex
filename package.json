@@ -23,7 +23,7 @@
     "twilio": "^5.4.0"
   },
   "devDependencies": {
-    "@types/node": "^20.12.0",
+    "@types/node": "^20.19.39",
     "@types/nodemailer": "^6.4.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",

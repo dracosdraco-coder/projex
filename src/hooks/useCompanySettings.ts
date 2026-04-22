@@ -16,12 +16,7 @@ export function useCompanySettings() {
   }
 
   return {
-    settings: settings || {
-      companyName: 'Your Company Name',
-      address: '123 Main St, City, State 12345',
-      phone: '(555) 123-4567',
-      email: 'info@company.com',
-    },
+    settings: settings || null,
     getNextFormNumber,
   }
 }

@@ -1,7 +1,9 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { X, Plus, Trash2, Save, Download, Eye, Copy } from 'lucide-react'
+import { X, Plus, Trash2, Save, Download, Eye, Copy, Users, Building2 } from 'lucide-react'
+import DocumentPreview from '@/components/DocumentPreview'
+import { useCompanySettings } from '@/hooks/useCompanySettings'
 
 interface LineItem {
   id: string; description: string; quantity: number; unit: string
@@ -67,8 +69,11 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const [saveError, setSaveError] = useState('')
   const [showTemplates, setShowTemplates] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [viewMode, setViewMode] = useState<'internal' | 'external'>('external')
   const [activeTab, setActiveTab] = useState<'editor' | 'breakdown'>('editor')
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null)
+
+  const { settings: companySettings } = useCompanySettings()
 
   const [lineItems, setLineItems] = useState<LineItem[]>(
     draft?.lineItems ||
@@ -183,7 +188,25 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
           </div>
           <div className="flex items-center gap-1.5">
             {saveError && <span className="text-[10px] text-red-500 mr-2">{saveError}</span>}
-            <button onClick={() => setShowPreview(!showPreview)} className="px-2 py-1 text-[10px] font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#333] rounded-lg hover:bg-gray-200 dark:hover:bg-[#444] flex items-center gap-1"><Eye className="w-3 h-3" /> Preview</button>
+            {showPreview && (
+              <div className="flex items-center bg-gray-100 dark:bg-[#333] rounded-lg p-0.5 gap-0.5">
+                <button
+                  onClick={() => setViewMode('external')}
+                  title="Client view — hides costs"
+                  className={`px-2 py-0.5 text-[10px] font-medium rounded flex items-center gap-1 transition-colors ${viewMode === 'external' ? 'bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  <Users className="w-3 h-3" /> Client
+                </button>
+                <button
+                  onClick={() => setViewMode('internal')}
+                  title="Internal view — shows costs & margins"
+                  className={`px-2 py-0.5 text-[10px] font-medium rounded flex items-center gap-1 transition-colors ${viewMode === 'internal' ? 'bg-white dark:bg-[#1a1a1a] text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  <Building2 className="w-3 h-3" /> Internal
+                </button>
+              </div>
+            )}
+            <button onClick={() => setShowPreview(!showPreview)} className={`px-2 py-1 text-[10px] font-medium rounded-lg flex items-center gap-1 transition-colors ${showPreview ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-[#333] hover:bg-gray-200 dark:hover:bg-[#444]'}`}><Eye className="w-3 h-3" /> Preview</button>
             <button onClick={handleSave} disabled={saving} className="px-3 py-1 text-[10px] font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-1"><Save className="w-3 h-3" /> {saving ? 'Saving...' : 'Save'}</button>
             <button onClick={handleExport} disabled={saving} className="px-3 py-1 text-[10px] font-medium bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:bg-gray-800 dark:hover:bg-gray-100 flex items-center gap-1"><Download className="w-3 h-3" /> PDF</button>
             <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-[#333]"><X className="w-4 h-4" /></button>
@@ -366,47 +389,45 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
             </div>
           </div>
 
-          {/* RIGHT: Preview */}
+          {/* RIGHT: Branded Preview */}
           {showPreview && (
-            <div className="h-[50%] sm:h-full sm:w-[45%] bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-4">
-              <div className="bg-white shadow-lg w-full max-w-[612px] min-h-[792px] rounded-sm" style={{ fontFamily: 'system-ui' }}>
-                <div className="p-8 text-gray-900 text-[11px] leading-relaxed">
-                  <div className="flex justify-between items-start mb-6">
-                    <div>
-                      <div className="text-base font-bold">{companyName || 'Company'}</div>
-                      {companyAddress && <div className="text-gray-500 mt-0.5">{companyAddress}</div>}
-                      {companyPhone && <div className="text-gray-500">{companyPhone}</div>}
-                      {companyEmail && <div className="text-gray-500">{companyEmail}</div>}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xl font-bold text-gray-300 uppercase tracking-wider">{TYPE_LABELS[type]}</div>
-                      <div className="mt-1.5 text-gray-600">
-                        <div>#{docNumber}</div>
-                        <div>Date: {dateIssued}</div>
-                        {dateDue && <div>Due: {dateDue}</div>}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mb-6 p-2.5 bg-gray-50 rounded">
-                    <div className="text-[9px] font-semibold text-gray-400 uppercase mb-0.5">Bill To</div>
-                    <div className="font-semibold text-xs">{clientName || '—'}</div>
-                    {clientAddress && <div className="text-gray-600">{clientAddress}</div>}
-                    {clientEmail && <div className="text-gray-600">{clientEmail}</div>}
-                  </div>
-                  <table className="w-full mb-5">
-                    <thead><tr className="border-b-2 border-gray-900"><th className="text-left py-1.5 font-semibold text-[9px] uppercase">Description</th><th className="text-right py-1.5 font-semibold text-[9px] uppercase w-12">Qty</th><th className="text-right py-1.5 font-semibold text-[9px] uppercase w-12">Unit</th><th className="text-right py-1.5 font-semibold text-[9px] uppercase w-16">Price</th><th className="text-right py-1.5 font-semibold text-[9px] uppercase w-16">Amount</th></tr></thead>
-                    <tbody>{lineItems.map(li => (<tr key={li.id} className="border-b border-gray-200"><td className="py-1.5">{li.description || '—'}</td><td className="text-right py-1.5 tabular-nums">{li.quantity}</td><td className="text-right py-1.5">{li.unit}</td><td className="text-right py-1.5 tabular-nums">{fmt(li.price)}</td><td className="text-right py-1.5 font-medium tabular-nums">{fmt(li.quantity * li.price)}</td></tr>))}</tbody>
-                  </table>
-                  <div className="flex justify-end mb-6">
-                    <div className="w-44 space-y-0.5">
-                      <div className="flex justify-between"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
-                      {taxRate > 0 && <div className="flex justify-between"><span>Tax ({taxRate}%)</span><span className="tabular-nums">{fmt(taxAmount)}</span></div>}
-                      <div className="flex justify-between font-bold text-xs border-t border-gray-900 pt-1 mt-1"><span>Total</span><span className="tabular-nums">{fmt(total)}</span></div>
-                    </div>
-                  </div>
-                  {terms && <div className="mb-3"><div className="text-[9px] font-semibold text-gray-400 uppercase mb-0.5">Terms</div><div className="text-gray-600 whitespace-pre-wrap">{terms}</div></div>}
-                  {notes && <div><div className="text-[9px] font-semibold text-gray-400 uppercase mb-0.5">Notes</div><div className="text-gray-600 whitespace-pre-wrap">{notes}</div></div>}
-                </div>
+            <div className="h-[50%] sm:h-full sm:w-[45%] bg-gray-200 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-4">
+              <div className="bg-white shadow-xl w-full max-w-[680px] rounded-sm">
+                <DocumentPreview
+                  doc={{
+                    type,
+                    documentNumber: docNumber,
+                    companyName,
+                    companyAddress,
+                    companyPhone,
+                    companyEmail,
+                    clientName,
+                    clientAddress,
+                    clientEmail,
+                    clientPhone,
+                    dateIssued,
+                    dateDue,
+                    lineItems: lineItems.map(li => ({ ...li, unitPrice: li.price })),
+                    subtotal,
+                    taxRate,
+                    taxTotal: taxAmount,
+                    total,
+                    costTotal: totalCost,
+                    profit: totalProfit,
+                    marginPercent: overallMargin,
+                    terms,
+                    notes,
+                  }}
+                  brand={companySettings ? {
+                    logo: companySettings.logo,
+                    tagline: companySettings.tagline,
+                    licenseTag: companySettings.licenseTag,
+                    primaryColor: companySettings.primaryColor,
+                    accentColor: companySettings.accentColor,
+                    designTheme: companySettings.designTheme,
+                  } : {}}
+                  viewMode={viewMode}
+                />
               </div>
             </div>
           )}

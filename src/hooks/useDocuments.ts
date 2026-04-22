@@ -47,7 +47,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
       .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
       .order('start_time', { ascending: false })
 
-    if (error) throw error
+    if (error) return
     setMeetings((data || []).map((m: any) => ({ ...m, attendees: m.attendees || [] })) as Meeting[])
   }, [userId])
 
@@ -59,7 +59,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
       .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
       .order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (error) return
     setBranches((data || []) as Branch[])
   }, [userId])
 
@@ -418,18 +418,23 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
 
   const getNextDocumentNumber = useCallback(async (type: string, prefix: string = '') => {
     if (!userId) return null
-    const { data, error } = await supabase.rpc('get_next_document_number', {
-      p_user_id: userId, org_id: orgId || undefined, p_document_type: type, p_prefix: prefix || type.toUpperCase().substring(0, 3),
-    })
-    if (error) return null
-    return data
+    try {
+      const { data, error } = await supabase.rpc('get_next_document_number', {
+        p_user_id: userId, org_id: orgId || undefined, p_document_type: type, p_prefix: prefix || type.toUpperCase().substring(0, 3),
+      })
+      if (error || !data) return null
+      return data
+    } catch {
+      return null
+    }
   }, [userId])
 
   const createGeneratedDocument = useCallback(async (data: Partial<GeneratedDocument>) => {
     if (!userId) return null
 
-    const documentNumber = await getNextDocumentNumber(data.type!, data.type?.toUpperCase().substring(0, 3))
-    if (!documentNumber) return null
+    // Fall back to a timestamp-based number if the RPC isn't available yet
+    const rpcNumber = await getNextDocumentNumber(data.type!, data.type?.toUpperCase().substring(0, 3))
+    const documentNumber = rpcNumber || `${(data.type || 'DOC').toUpperCase().substring(0, 3)}-${Date.now().toString().slice(-6)}`
 
     const { data: newDoc, error } = await supabase
       .from('generated_documents')

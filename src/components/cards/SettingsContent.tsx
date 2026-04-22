@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useSubscription } from '@/hooks/useSubscription'
 import { PlanId } from '@/lib/stripe-plans'
 import { createBrowserClient } from '@supabase/ssr'
-import { User, CreditCard, Package, Bell, Shield, LogOut, ChevronRight, Check, Plus, Minus, ExternalLink, Building2, Gift, Copy } from 'lucide-react'
+import { User, CreditCard, Package, Bell, Shield, LogOut, Check, Plus, ExternalLink, Building2, Gift, Copy, Palette, Upload, X } from 'lucide-react'
+import { useTemplates } from '@/hooks/useTemplates'
+import { DesignTheme } from '@/types/templates'
+import { ThemePreviewCard } from '@/components/DocumentPreview'
 
 const PLANS = [
   { id: 'duo', name: 'Duo', price: 19.99, annual: 16.99, users: 2, features: ['Up to 2 users', '5 active projects', 'Estimates & invoices', 'Calendar & scheduling'], current: false },
@@ -23,11 +26,12 @@ const ADDONS = [
   { id: 'quickbooks', name: 'Quickbooks Sync', price: 11, desc: 'Two-way sync with QuickBooks Online', active: false },
 ]
 
-type Tab = 'account' | 'organization' | 'subscription' | 'addons' | 'billing' | 'notifications' | 'security' | 'referral'
+type Tab = 'account' | 'organization' | 'branding' | 'subscription' | 'addons' | 'billing' | 'notifications' | 'security' | 'referral'
 
 const TABS: { id: Tab; label: string; icon: any }[] = [
   { id: 'account', label: 'Account', icon: User },
   { id: 'organization', label: 'Organization', icon: Building2 },
+  { id: 'branding', label: 'Branding', icon: Palette },
   { id: 'subscription', label: 'Subscription', icon: Package },
   { id: 'addons', label: 'Add-ons', icon: Plus },
   { id: 'billing', label: 'Billing', icon: CreditCard },
@@ -421,6 +425,9 @@ export default function SettingsContent() {
             </div>
           )}
 
+          {/* BRANDING TAB */}
+          {tab === 'branding' && <BrandingTab />}
+
           {/* SUBSCRIPTION TAB */}
           {tab === 'subscription' && (
             <div className="max-w-2xl space-y-6">
@@ -720,6 +727,224 @@ export default function SettingsContent() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Branding Tab ─────────────────────────────────────────────────────────────
+
+const THEME_LABELS: Record<DesignTheme, string> = {
+  classic: 'Classic',
+  corporate: 'Corporate',
+  modern: 'Modern',
+}
+
+function BrandingTab() {
+  const { getDefaultCompanyInfo, createCompanyInfoTemplate, updateTemplate } = useTemplates()
+
+  const company = getDefaultCompanyInfo()
+
+  const [tagline, setTagline] = useState(company?.tagline || '')
+  const [licenseTag, setLicenseTag] = useState(company?.licenseTag || '')
+  const [primaryColor, setPrimaryColor] = useState(company?.primaryColor || '#1a1a1a')
+  const [accentColor, setAccentColor] = useState(company?.accentColor || '#8B7355')
+  const [designTheme, setDesignTheme] = useState<DesignTheme>(company?.designTheme || 'classic')
+  const [logo, setLogo] = useState(company?.logo || '')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const logoInputRef = useRef<HTMLInputElement>(null)
+
+  // Sync from localStorage when company template loads
+  useEffect(() => {
+    if (company) {
+      setTagline(company.tagline || '')
+      setLicenseTag(company.licenseTag || '')
+      setPrimaryColor(company.primaryColor || '#1a1a1a')
+      setAccentColor(company.accentColor || '#8B7355')
+      setDesignTheme(company.designTheme || 'classic')
+      setLogo(company.logo || '')
+    }
+  }, [company?.id])
+
+  const handleLogoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => setLogo(ev.target?.result as string || '')
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleSave = () => {
+    setSaveStatus('saving')
+    try {
+      const updates = { tagline, licenseTag, primaryColor, accentColor, designTheme, logo }
+      if (company) {
+        updateTemplate(company.id, updates)
+      } else {
+        createCompanyInfoTemplate({
+          name: 'Default Company',
+          isDefault: true,
+          companyName: 'My Company',
+          address: '',
+          phone: '',
+          email: '',
+          ...updates,
+          formPrefixes: { invoice: 'INV-', estimate: 'EST-', contract: 'CON-', changeOrder: 'CHO-', proposal: 'PRO-' },
+          formCounters: { invoice: 1, estimate: 1, contract: 1, changeOrder: 1, proposal: 1 },
+        })
+      }
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    } catch {
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    }
+  }
+
+  const inputCls = 'w-full px-3 py-2 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a] rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:border-gray-400 dark:focus:border-[#444]'
+  const labelCls = 'block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide'
+
+  return (
+    <div className="max-w-lg space-y-6">
+      <div>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Document Branding</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-5">Customize how your documents look when sent to clients. These settings apply to all forms, proposals, invoices, and reports.</p>
+
+        {/* Logo */}
+        <div className="mb-5">
+          <label className={labelCls}>Company Logo</label>
+          <div className="flex items-center gap-3">
+            {logo ? (
+              <div className="relative shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={logo} alt="Logo" className="h-14 w-auto object-contain rounded border border-gray-200 dark:border-[#2a2a2a] bg-white p-1" />
+                <button onClick={() => setLogo('')} className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center">
+                  <X className="w-2.5 h-2.5" />
+                </button>
+              </div>
+            ) : (
+              <div
+                onClick={() => logoInputRef.current?.click()}
+                className="h-14 w-28 border-2 border-dashed border-gray-300 dark:border-[#333] rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-gray-400 transition-colors"
+              >
+                <Upload className="w-4 h-4 text-gray-400 mb-0.5" />
+                <span className="text-[9px] text-gray-400">Upload logo</span>
+              </div>
+            )}
+            <div className="min-w-0">
+              <button onClick={() => logoInputRef.current?.click()} className="text-xs text-blue-600 dark:text-blue-400 hover:underline block mb-0.5">
+                {logo ? 'Replace logo' : 'Upload logo'}
+              </button>
+              <p className="text-[10px] text-gray-400">PNG, JPG, SVG · max 2 MB</p>
+              <p className="text-[10px] text-gray-400">If no logo, your company name is used.</p>
+            </div>
+          </div>
+          <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoFile} />
+        </div>
+
+        {/* Tagline + License */}
+        <div className="space-y-3 mb-5">
+          <div>
+            <label className={labelCls}>Company Tagline</label>
+            <input type="text" value={tagline} onChange={e => setTagline(e.target.value)} placeholder="e.g. Modern Engineering & Construction LLC" className={inputCls} />
+            <p className="text-[10px] text-gray-400 mt-0.5">Shown below your company name on documents.</p>
+          </div>
+          <div>
+            <label className={labelCls}>License / Credential Tag</label>
+            <input type="text" value={licenseTag} onChange={e => setLicenseTag(e.target.value)} placeholder="e.g. Florida Licensed & Bonded" className={inputCls} />
+            <p className="text-[10px] text-gray-400 mt-0.5">Appears alongside tagline in document headers and footers.</p>
+          </div>
+        </div>
+
+        {/* Design Theme */}
+        <div className="mb-5">
+          <label className={labelCls}>Document Design</label>
+          <div className="grid grid-cols-3 gap-3 mt-2">
+            {(Object.keys(THEME_LABELS) as DesignTheme[]).map(t => (
+              <ThemePreviewCard
+                key={t}
+                theme={t}
+                label={THEME_LABELS[t]}
+                selected={designTheme === t}
+                onClick={() => setDesignTheme(t)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Colors */}
+        <div className="mb-6">
+          <label className={labelCls}>Custom Colors <span className="normal-case text-gray-400">(overrides theme defaults)</span></label>
+          <div className="flex gap-4 mt-2">
+            <div className="flex-1">
+              <label className="text-[10px] text-gray-500 mb-1 block">Primary</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)}
+                  className="h-8 w-10 rounded border border-gray-200 dark:border-[#2a2a2a] cursor-pointer p-0.5 bg-transparent" />
+                <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} maxLength={7}
+                  className="flex-1 px-2 py-1.5 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a] rounded-lg text-xs font-mono text-gray-900 dark:text-gray-100 focus:outline-none" />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="text-[10px] text-gray-500 mb-1 block">Accent</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={accentColor} onChange={e => setAccentColor(e.target.value)}
+                  className="h-8 w-10 rounded border border-gray-200 dark:border-[#2a2a2a] cursor-pointer p-0.5 bg-transparent" />
+                <input type="text" value={accentColor} onChange={e => setAccentColor(e.target.value)} maxLength={7}
+                  className="flex-1 px-2 py-1.5 bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a] rounded-lg text-xs font-mono text-gray-900 dark:text-gray-100 focus:outline-none" />
+              </div>
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1.5">Accent color is used for headings, rules, and highlights across all documents.</p>
+        </div>
+
+        {/* Live mini preview */}
+        <div className="mb-5 rounded-xl overflow-hidden border border-gray-200 dark:border-[#2a2a2a]">
+          <div className="px-3 py-2 bg-gray-50 dark:bg-[#1a1a1a] border-b border-gray-200 dark:border-[#2a2a2a]">
+            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Preview</span>
+          </div>
+          <div className="bg-white p-4" style={{ fontFamily: 'system-ui, sans-serif' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+              <div>
+                {logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={logo} alt="" style={{ height: 28 }} />
+                ) : (
+                  <div style={{ fontSize: 15, fontWeight: 900, color: primaryColor, letterSpacing: '-0.3px' }}>COMPANY NAME</div>
+                )}
+                {(tagline || licenseTag) && (
+                  <div style={{ fontSize: 6.5, letterSpacing: '0.12em', textTransform: 'uppercase', color: accentColor, marginTop: 3 }}>
+                    {[tagline, licenseTag].filter(Boolean).join(' · ')}
+                  </div>
+                )}
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 5.5, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#aaa' }}>POWERED BY</div>
+                <div style={{ fontSize: 10, fontWeight: 900, color: primaryColor }}>PROJEX.live</div>
+              </div>
+            </div>
+            <div style={{ height: 1.5, background: `linear-gradient(to right, ${accentColor}, ${accentColor}50, transparent)`, marginBottom: 8 }} />
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: primaryColor, marginBottom: 2 }}>ESTIMATE</div>
+            <div style={{ border: '1px solid #e5e5e5', borderRadius: 2, overflow: 'hidden' }}>
+              {['PREPARED FOR · Client Name', 'DATE ISSUED · April 22, 2026', 'DOCUMENT NO. · EST-001'].map((row, i) => {
+                const [label, val] = row.split(' · ')
+                return (
+                  <div key={i} style={{ display: 'flex', borderBottom: i < 2 ? '1px solid #eee' : 'none', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                    <div style={{ width: '38%', padding: '5px 8px', fontSize: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#999' }}>{label}</div>
+                    <div style={{ flex: 1, padding: '5px 8px', fontSize: 8, textAlign: 'right', color: i === 0 ? accentColor : primaryColor }}>{val}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        <button onClick={handleSave} className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+          saveStatus === 'saved' ? 'bg-green-600 text-white' : saveStatus === 'error' ? 'bg-red-600 text-white' : 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-200'
+        }`}>
+          {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error — retry' : 'Save Branding'}
+        </button>
       </div>
     </div>
   )

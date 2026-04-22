@@ -35,6 +35,8 @@ export interface WorkspaceTemplate {
   updatedAt: string
 }
 
+export type DesignTheme = 'classic' | 'corporate' | 'modern'
+
 export interface CompanyInfoTemplate {
   id: string
   name: string // e.g., "Main Company", "DBA: Roofing Pro", "LLC Entity"
@@ -45,6 +47,11 @@ export interface CompanyInfoTemplate {
   email: string
   website?: string
   logo?: string
+  tagline?: string          // e.g., "Modern Engineering & Construction LLC"
+  licenseTag?: string       // e.g., "Florida Licensed & Bonded"
+  primaryColor?: string     // hex, default #1a1a1a
+  accentColor?: string      // hex, default #8B7355
+  designTheme?: DesignTheme // document design theme
   taxId?: string
   licenseNumber?: string
   insuranceInfo?: string
