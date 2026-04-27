@@ -214,11 +214,15 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <h4 className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 uppercase">From</h4>
                       <FormInput label="Company" value={companyName} onChange={setCompanyName} />
-                      <FormInput label="Address" value={companyAddress} onChange={setCompanyAddress} />
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">Address</label>
+                        <textarea value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} rows={2}
+                          className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y min-h-[52px]" />
+                      </div>
                       <div className="grid grid-cols-2 gap-1.5">
                         <FormInput label="Phone" value={companyPhone} onChange={setCompanyPhone} />
                         <FormInput label="Email" value={companyEmail} onChange={setCompanyEmail} />
@@ -227,7 +231,11 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     <div className="space-y-1.5">
                       <h4 className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 uppercase">To</h4>
                       <FormInput label="Client" value={clientName} onChange={setClientName} />
-                      <FormInput label="Address" value={clientAddress} onChange={setClientAddress} />
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">Address</label>
+                        <textarea value={clientAddress} onChange={e => setClientAddress(e.target.value)} rows={2}
+                          className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y min-h-[52px]" />
+                      </div>
                       <div className="grid grid-cols-2 gap-1.5">
                         <FormInput label="Phone" value={clientPhone} onChange={setClientPhone} />
                         <FormInput label="Email" value={clientEmail} onChange={setClientEmail} />
@@ -267,6 +275,8 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                       </div>
                     </div>
 
+                    <div className="overflow-x-auto">
+                    <div className="min-w-[500px]">
                     <div className="grid grid-cols-[1fr_50px_55px_70px_50px_70px_70px_44px] gap-1 text-[9px] font-medium text-gray-400 uppercase px-0.5 mb-0.5">
                       <span>Description</span><span>Qty</span><span>Unit</span><span>Cost</span><span>Mkp%</span><span>Price</span><span>Total</span><span />
                     </div>
@@ -299,6 +309,8 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                         </div>
                       ))}
                     </div>
+                    </div>
+                    </div>
                   </div>
 
                   {/* Totals */}
@@ -315,14 +327,14 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     <div className="flex justify-between text-sm font-bold border-t border-gray-200 dark:border-[#333] pt-1.5"><span>Total</span><span className="tabular-nums">{fmt(total)}</span></div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-0.5 uppercase">Terms</label>
-                      <textarea value={terms} onChange={e => setTerms(e.target.value)} rows={2} className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      <textarea value={terms} onChange={e => setTerms(e.target.value)} rows={3} className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs resize-y min-h-[64px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
                     </div>
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-0.5 uppercase">Notes</label>
-                      <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs resize-y min-h-[64px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
                     </div>
                   </div>
                 </div>
