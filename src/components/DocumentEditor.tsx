@@ -369,43 +369,96 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
           {/* RIGHT: Preview */}
           {showPreview && (
             <div className="h-[50%] sm:h-full sm:w-[45%] bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-4">
-              <div className="bg-white shadow-lg w-full max-w-[612px] min-h-[792px] rounded-sm" style={{ fontFamily: 'system-ui' }}>
-                <div className="p-8 text-gray-900 text-[11px] leading-relaxed">
-                  <div className="flex justify-between items-start mb-6">
+              <div className="bg-white shadow-lg w-full max-w-[612px] min-h-[792px] overflow-hidden" style={{ fontFamily: 'system-ui' }}>
+                {/* Brand accent bar */}
+                <div className="h-[5px] bg-blue-600" />
+                <div className="px-9 py-8 text-gray-900 text-[11px] leading-relaxed">
+                  {/* Header */}
+                  <div className="flex justify-between items-start pb-5 mb-6 border-b border-gray-100">
                     <div>
-                      <div className="text-base font-bold">{companyName || 'Company'}</div>
-                      {companyAddress && <div className="text-gray-500 mt-0.5">{companyAddress}</div>}
-                      {companyPhone && <div className="text-gray-500">{companyPhone}</div>}
-                      {companyEmail && <div className="text-gray-500">{companyEmail}</div>}
+                      <div className="text-sm font-bold text-gray-900 tracking-tight">{companyName || 'Your Company'}</div>
+                      {companyAddress && <div className="text-gray-400 mt-0.5">{companyAddress}</div>}
+                      {companyPhone && <div className="text-gray-400">{companyPhone}</div>}
+                      {companyEmail && <div className="text-gray-400">{companyEmail}</div>}
                     </div>
                     <div className="text-right">
-                      <div className="text-xl font-bold text-gray-300 uppercase tracking-wider">{TYPE_LABELS[type]}</div>
-                      <div className="mt-1.5 text-gray-600">
-                        <div>#{docNumber}</div>
-                        <div>Date: {dateIssued}</div>
-                        {dateDue && <div>Due: {dateDue}</div>}
+                      <div className="text-lg font-bold text-gray-900 uppercase tracking-widest">{TYPE_LABELS[type]}</div>
+                      <div className="mt-1 space-y-0.5 text-gray-400">
+                        <div className="font-mono text-[10px] text-gray-500">#{docNumber}</div>
+                        <div>Issued {dateIssued}</div>
+                        {dateDue && <div className="text-orange-500 font-medium">Due {dateDue}</div>}
                       </div>
                     </div>
                   </div>
-                  <div className="mb-6 p-2.5 bg-gray-50 rounded">
-                    <div className="text-[9px] font-semibold text-gray-400 uppercase mb-0.5">Bill To</div>
-                    <div className="font-semibold text-xs">{clientName || '—'}</div>
-                    {clientAddress && <div className="text-gray-600">{clientAddress}</div>}
-                    {clientEmail && <div className="text-gray-600">{clientEmail}</div>}
-                  </div>
-                  <table className="w-full mb-5">
-                    <thead><tr className="border-b-2 border-gray-900"><th className="text-left py-1.5 font-semibold text-[9px] uppercase">Description</th><th className="text-right py-1.5 font-semibold text-[9px] uppercase w-12">Qty</th><th className="text-right py-1.5 font-semibold text-[9px] uppercase w-12">Unit</th><th className="text-right py-1.5 font-semibold text-[9px] uppercase w-16">Price</th><th className="text-right py-1.5 font-semibold text-[9px] uppercase w-16">Amount</th></tr></thead>
-                    <tbody>{lineItems.map(li => (<tr key={li.id} className="border-b border-gray-200"><td className="py-1.5">{li.description || '—'}</td><td className="text-right py-1.5 tabular-nums">{li.quantity}</td><td className="text-right py-1.5">{li.unit}</td><td className="text-right py-1.5 tabular-nums">{fmt(li.price)}</td><td className="text-right py-1.5 font-medium tabular-nums">{fmt(li.quantity * li.price)}</td></tr>))}</tbody>
-                  </table>
-                  <div className="flex justify-end mb-6">
-                    <div className="w-44 space-y-0.5">
-                      <div className="flex justify-between"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
-                      {taxRate > 0 && <div className="flex justify-between"><span>Tax ({taxRate}%)</span><span className="tabular-nums">{fmt(taxAmount)}</span></div>}
-                      <div className="flex justify-between font-bold text-xs border-t border-gray-900 pt-1 mt-1"><span>Total</span><span className="tabular-nums">{fmt(total)}</span></div>
+
+                  {/* Bill To + Amount Due */}
+                  <div className="flex justify-between items-start mb-8">
+                    <div className="pl-3 border-l-4 border-blue-600">
+                      <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Bill To</div>
+                      <div className="font-semibold text-xs text-gray-900">{clientName || '—'}</div>
+                      {clientAddress && <div className="text-gray-500 mt-0.5">{clientAddress}</div>}
+                      {clientEmail && <div className="text-gray-500">{clientEmail}</div>}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Amount Due</div>
+                      <div className="text-2xl font-bold text-blue-600 tabular-nums">{fmt(total)}</div>
+                      {dateDue && <div className="text-[10px] text-gray-400 mt-0.5">due {dateDue}</div>}
                     </div>
                   </div>
-                  {terms && <div className="mb-3"><div className="text-[9px] font-semibold text-gray-400 uppercase mb-0.5">Terms</div><div className="text-gray-600 whitespace-pre-wrap">{terms}</div></div>}
-                  {notes && <div><div className="text-[9px] font-semibold text-gray-400 uppercase mb-0.5">Notes</div><div className="text-gray-600 whitespace-pre-wrap">{notes}</div></div>}
+
+                  {/* Line items */}
+                  <table className="w-full mb-5">
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #2563eb' }}>
+                        <th className="text-left pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500">Description</th>
+                        <th className="text-right pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500 w-12">Qty</th>
+                        <th className="text-right pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500 w-12">Unit</th>
+                        <th className="text-right pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500 w-16">Price</th>
+                        <th className="text-right pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500 w-16">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lineItems.map(li => (
+                        <tr key={li.id} className="border-b border-gray-100">
+                          <td className="py-2 text-gray-800">{li.description || '—'}</td>
+                          <td className="text-right py-2 tabular-nums text-gray-500">{li.quantity}</td>
+                          <td className="text-right py-2 text-gray-500">{li.unit}</td>
+                          <td className="text-right py-2 tabular-nums text-gray-500">{fmt(li.price)}</td>
+                          <td className="text-right py-2 font-semibold tabular-nums text-gray-900">{fmt(li.quantity * li.price)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Totals */}
+                  <div className="flex justify-end mb-8">
+                    <div className="w-48 text-[11px]">
+                      <div className="flex justify-between py-1 text-gray-500"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
+                      {taxRate > 0 && <div className="flex justify-between py-1 text-gray-500"><span>Tax ({taxRate}%)</span><span className="tabular-nums">{fmt(taxAmount)}</span></div>}
+                      <div className="flex justify-between items-center mt-1 pt-2" style={{ borderTop: '2px solid #2563eb' }}>
+                        <span className="font-bold text-sm text-gray-900">Total</span>
+                        <span className="font-bold text-sm tabular-nums text-blue-600">{fmt(total)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Terms / Notes */}
+                  {(terms || notes) && (
+                    <div className={`border-t border-gray-100 pt-5 ${terms && notes ? 'grid grid-cols-2 gap-6' : ''}`}>
+                      {terms && (
+                        <div>
+                          <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Terms</div>
+                          <div className="text-gray-500 whitespace-pre-wrap">{terms}</div>
+                        </div>
+                      )}
+                      {notes && (
+                        <div>
+                          <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Notes</div>
+                          <div className="text-gray-500 whitespace-pre-wrap">{notes}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

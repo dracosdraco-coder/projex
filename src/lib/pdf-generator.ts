@@ -33,100 +33,142 @@ function generateFinancialPDF(doc: any): string {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
   const W = pdf.internal.pageSize.getWidth()
   const H = pdf.internal.pageSize.getHeight()
-  const M = 50
+  const M = 36
   let y = M
 
   const checkPage = (need: number) => { if (y + need > H - M) { pdf.addPage(); y = M } }
 
-  // Company header
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(16); pdf.setTextColor(30, 30, 30)
-  pdf.text(doc.companyName || 'Company', M, y); y += 16
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(120, 120, 120)
-  if (doc.companyAddress) { pdf.text(doc.companyAddress, M, y); y += 12 }
-  if (doc.companyPhone) { pdf.text(doc.companyPhone, M, y); y += 12 }
-  if (doc.companyEmail) { pdf.text(doc.companyEmail, M, y); y += 12 }
+  // Blue top accent bar
+  pdf.setFillColor(37, 99, 235); pdf.rect(0, 0, W, 5, 'F')
+  y = M + 8
 
-  // Type + number (top right)
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(22); pdf.setTextColor(200, 200, 200)
-  pdf.text(TYPE_LABELS[doc.type] || 'DOCUMENT', W - M, M + 4, { align: 'right' })
-  pdf.setFontSize(10); pdf.setTextColor(120, 120, 120)
-  pdf.text(`#${doc.documentNumber || '—'}`, W - M, M + 24, { align: 'right' })
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9)
-  pdf.text(`Date: ${doc.dateIssued || '—'}`, W - M, M + 38, { align: 'right' })
-  if (doc.dateDue) pdf.text(`Due: ${doc.dateDue}`, W - M, M + 50, { align: 'right' })
+  // Company header (left)
+  const headerY = y
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(13); pdf.setTextColor(17, 24, 39)
+  pdf.text(doc.companyName || 'Company', M, y); y += 14
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(107, 114, 128)
+  if (doc.companyAddress) { pdf.text(doc.companyAddress, M, y); y += 11 }
+  if (doc.companyPhone) { pdf.text(doc.companyPhone, M, y); y += 11 }
+  if (doc.companyEmail) { pdf.text(doc.companyEmail, M, y); y += 11 }
 
-  y = Math.max(y, M + 60) + 20
+  // Doc type + meta (top right) — dark and prominent
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(18); pdf.setTextColor(17, 24, 39)
+  pdf.text(TYPE_LABELS[doc.type] || 'DOCUMENT', W - M, headerY, { align: 'right' })
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
+  pdf.text(`#${doc.documentNumber || '—'}`, W - M, headerY + 16, { align: 'right' })
+  pdf.text(`Issued ${doc.dateIssued || '—'}`, W - M, headerY + 27, { align: 'right' })
+  if (doc.dateDue) {
+    pdf.setTextColor(234, 88, 12)
+    pdf.text(`Due ${doc.dateDue}`, W - M, headerY + 38, { align: 'right' })
+  }
 
-  // Bill To block
-  pdf.setFillColor(245, 245, 245); pdf.rect(M, y, W - M * 2, 50, 'F')
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
-  pdf.text('BILL TO', M + 10, y + 14)
-  pdf.setFontSize(11); pdf.setTextColor(30, 30, 30)
-  pdf.text(doc.clientName || '—', M + 10, y + 28)
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(120, 120, 120)
-  if (doc.clientAddress) pdf.text(doc.clientAddress, M + 10, y + 42)
-  y += 65
+  y = Math.max(y, headerY + 52) + 12
+  // Header divider
+  pdf.setDrawColor(229, 231, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 16
 
-  // Line items table header
+  // Bill To (left) + Amount Due (right)
+  const blockY = y
+  // Blue left accent bar
+  pdf.setFillColor(37, 99, 235); pdf.rect(M, blockY, 3, 42, 'F')
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
+  pdf.text('BILL TO', M + 8, blockY + 11)
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(17, 24, 39)
+  pdf.text(doc.clientName || '—', M + 8, blockY + 24)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(107, 114, 128)
+  if (doc.clientAddress) pdf.text(doc.clientAddress, M + 8, blockY + 37)
+
+  // Amount Due (right) — the number clients look at first
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
+  pdf.text('AMOUNT DUE', W - M, blockY + 11, { align: 'right' })
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(20); pdf.setTextColor(37, 99, 235)
+  pdf.text(fmt(doc.total || 0), W - M, blockY + 30, { align: 'right' })
+  if (doc.dateDue) {
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(156, 163, 175)
+    pdf.text(`due ${doc.dateDue}`, W - M, blockY + 42, { align: 'right' })
+  }
+
+  y = blockY + 58
+
+  // Line items table
   const items = doc.lineItems || []
-  pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(1.5); pdf.line(M, y, W - M, y); y += 14
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(120, 120, 120)
-  pdf.text('DESCRIPTION', M, y)
-  pdf.text('QTY', M + 260, y)
-  pdf.text('UNIT', M + 300, y)
-  pdf.text('PRICE', M + 355, y)
-  pdf.text('AMOUNT', W - M, y, { align: 'right' })
-  y += 8; pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 4
+  const colDesc = M
+  const colQty = M + 295
+  const colUnit = M + 340
+  const colPrice = M + 395
+  const colAmt = W - M
 
-  // Rows
+  pdf.setDrawColor(37, 99, 235); pdf.setLineWidth(1.5); pdf.line(M, y, W - M, y); y += 13
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(107, 114, 128)
+  pdf.text('DESCRIPTION', colDesc, y)
+  pdf.text('QTY', colQty, y)
+  pdf.text('UNIT', colUnit, y)
+  pdf.text('PRICE', colPrice, y)
+  pdf.text('AMOUNT', colAmt, y, { align: 'right' })
+  y += 7; pdf.setDrawColor(37, 99, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 5
+
   items.forEach((li: any) => {
     checkPage(20); y += 14
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(30, 30, 30)
-    const desc = (li.description || '—').substring(0, 50)
-    pdf.text(desc, M, y)
-    pdf.text(String(li.quantity || 0), M + 260, y)
-    pdf.text(li.unit || 'ea', M + 300, y)
-    pdf.text(fmt(li.price || li.unitPrice || 0), M + 340, y)
-    pdf.setFont('helvetica', 'bold')
-    pdf.text(fmt((li.quantity || 0) * (li.price || li.unitPrice || 0)), W - M, y, { align: 'right' })
-    pdf.setDrawColor(235, 235, 235); pdf.setLineWidth(0.3); pdf.line(M, y + 6, W - M, y + 6)
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(31, 41, 55)
+    pdf.text((li.description || '—').substring(0, 52), colDesc, y)
+    pdf.setTextColor(75, 85, 99)
+    pdf.text(String(li.quantity || 0), colQty, y)
+    pdf.text(li.unit || 'ea', colUnit, y)
+    pdf.text(fmt(li.price || li.unitPrice || 0), colPrice, y)
+    pdf.setFont('helvetica', 'bold'); pdf.setTextColor(17, 24, 39)
+    pdf.text(fmt((li.quantity || 0) * (li.price || li.unitPrice || 0)), colAmt, y, { align: 'right' })
+    pdf.setDrawColor(243, 244, 246); pdf.setLineWidth(0.3); pdf.line(M, y + 6, W - M, y + 6)
     y += 6
   })
 
   y += 20
 
   // Totals
-  const tx = W - M - 140
+  const tx = W - M - 155
   checkPage(60)
-  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(30, 30, 30)
-  pdf.text('Subtotal', tx, y); pdf.text(fmt(doc.subtotal || 0), W - M, y, { align: 'right' }); y += 14
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(107, 114, 128)
+  pdf.text('Subtotal', tx, y); pdf.text(fmt(doc.subtotal || 0), colAmt, y, { align: 'right' }); y += 13
   if ((doc.taxRate || 0) > 0 || (doc.taxTotal || 0) > 0) {
-    pdf.text(`Tax (${doc.taxRate || 0}%)`, tx, y); pdf.text(fmt(doc.taxTotal || 0), W - M, y, { align: 'right' }); y += 14
+    pdf.text(`Tax (${doc.taxRate || 0}%)`, tx, y); pdf.text(fmt(doc.taxTotal || 0), colAmt, y, { align: 'right' }); y += 13
   }
-  pdf.setDrawColor(30, 30, 30); pdf.setLineWidth(1); pdf.line(tx, y, W - M, y); y += 16
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12)
-  pdf.text('Total', tx, y); pdf.text(fmt(doc.total || 0), W - M, y, { align: 'right' }); y += 30
+  pdf.setDrawColor(37, 99, 235); pdf.setLineWidth(1.5); pdf.line(tx, y, colAmt, y); y += 14
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(17, 24, 39)
+  pdf.text('Total', tx, y)
+  pdf.setTextColor(37, 99, 235)
+  pdf.text(fmt(doc.total || 0), colAmt, y, { align: 'right' }); y += 28
 
-  // Terms
+  // Terms / Notes — side by side, fine print weight
   const termsText = doc.terms || ''
-  if (termsText && !termsText.startsWith('{')) {
-    checkPage(50)
-    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
-    pdf.text('TERMS', M, y); y += 14
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(120, 120, 120)
-    const termLines = pdf.splitTextToSize(termsText, W - M * 2)
-    termLines.forEach((line: string) => { checkPage(14); pdf.text(line, M, y); y += 12 })
-    y += 10
-  }
+  const hasTerms = !!(termsText && !termsText.startsWith('{'))
+  const hasNotes = !!(doc.notes && !doc.notes.startsWith('{') && doc.notes.length < 500)
 
-  // Notes
-  if (doc.notes && !doc.notes.startsWith('{') && doc.notes.length < 500) {
-    checkPage(40)
-    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(150, 150, 150)
-    pdf.text('NOTES', M, y); y += 14
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(120, 120, 120)
-    const noteLines = pdf.splitTextToSize(doc.notes, W - M * 2)
-    noteLines.forEach((line: string) => { checkPage(14); pdf.text(line, M, y); y += 12 })
+  if (hasTerms || hasNotes) {
+    checkPage(50)
+    pdf.setDrawColor(229, 231, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 14
+
+    const midX = W / 2 + 10
+    const colW = hasTerms && hasNotes ? midX - M - 15 : W - M * 2
+
+    if (hasTerms) {
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
+      pdf.text('TERMS', M, y)
+    }
+    if (hasNotes) {
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
+      pdf.text('NOTES', hasTerms ? midX : M, y)
+    }
+    y += 12
+
+    const textStartY = y
+    if (hasTerms) {
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(107, 114, 128)
+      pdf.splitTextToSize(termsText, colW).forEach((line: string) => { checkPage(12); pdf.text(line, M, y); y += 11 })
+    }
+    if (hasNotes) {
+      let noteY = textStartY
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(107, 114, 128)
+      pdf.splitTextToSize(doc.notes, colW).forEach((line: string) => { pdf.text(line, hasTerms ? midX : M, noteY); noteY += 11 })
+      y = Math.max(y, noteY)
+    }
   }
 
   const filename = `${doc.documentNumber || doc.type || 'document'}.pdf`
