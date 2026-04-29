@@ -160,42 +160,58 @@ function generateFinancialPDF(doc: any): string {
     }
   }
 
+  let globalRowIdx = 0
   const renderItem = (li: any, indent = 0) => {
     const descLines: string[] = pdf.splitTextToSize(li.description || '—', colQty - colDesc - indent - 10)
     const extraLines = descLines.length - 1
-    checkPage(20 + extraLines * 12)
-    y += 14
+    const rowH = 16 + extraLines * 12
+    checkPage(rowH + 6)
+
+    // Alternating row fill
+    if (globalRowIdx % 2 === 0) {
+      pdf.setFillColor(248, 249, 250)
+      pdf.rect(M, y, W - M * 2, rowH, 'F')
+    }
+    globalRowIdx++
+
+    y += 12
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(31, 41, 55)
     descLines.forEach((line: string, i: number) => pdf.text(line, colDesc + indent, y + i * 12))
-    pdf.setTextColor(75, 85, 99)
+    pdf.setFontSize(8.5); pdf.setTextColor(75, 85, 99)
     pdf.text(String(li.quantity || 0), colQty, y)
     pdf.text(li.unit || 'ea', colUnit, y)
     pdf.text(fmt(li.price || li.unitPrice || 0), colPrice, y)
-    pdf.setFont('helvetica', 'bold'); pdf.setTextColor(17, 24, 39)
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(9); pdf.setTextColor(17, 24, 39)
     pdf.text(fmt((li.quantity || 0) * (li.price || li.unitPrice || 0)), colAmt, y, { align: 'right' })
-    y += extraLines * 12
-    pdf.setDrawColor(243, 244, 246); pdf.setLineWidth(0.3); pdf.line(M, y + 6, W - M, y + 6)
-    y += 6
+    y += extraLines * 12 + (rowH - 12 - extraLines * 12)
+
+    // Row border — visible but subtle
+    pdf.setDrawColor(209, 213, 219); pdf.setLineWidth(0.4)
+    pdf.line(M, y, W - M, y)
   }
 
   groups.forEach(group => {
     if (group.title) {
-      checkPage(22)
-      y += 6
-      pdf.setFillColor(Math.round(aR * 0.08 + 247), Math.round(aG * 0.08 + 247), Math.round(aB * 0.08 + 247)); pdf.rect(M, y, W - M * 2, 17, 'F')
-      pdf.setFillColor(aR, aG, aB); pdf.rect(M + 6, y + 6, 5, 5, 'F')
+      checkPage(28)
+      y += 10
+      // Section header band with left accent bar
+      pdf.setFillColor(Math.round(aR * 0.1 + 240), Math.round(aG * 0.1 + 240), Math.round(aB * 0.1 + 240))
+      pdf.rect(M, y, W - M * 2, 18, 'F')
+      pdf.setFillColor(aR, aG, aB); pdf.rect(M, y, 3, 18, 'F')
       pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(aR, aG, aB)
-      pdf.text(group.title.toUpperCase(), M + 16, y + 11.5)
-      y += 17 + 3
+      pdf.text(group.title.toUpperCase(), M + 9, y + 11.5)
+      y += 18 + 2
     }
-    group.items.forEach((li: any) => renderItem(li, group.title ? 6 : 0))
+    group.items.forEach((li: any) => renderItem(li, group.title ? 8 : 0))
     if (hasSections && group.title && group.items.length > 0) {
-      y += 4
+      // Subtotal row
+      checkPage(20)
+      pdf.setFillColor(243, 244, 246); pdf.rect(M, y, W - M * 2, 18, 'F')
       pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
-      pdf.text(`${group.title.toUpperCase()} SUBTOTAL`, colPrice - 4, y, { align: 'right' })
-      pdf.setTextColor(55, 65, 81)
-      pdf.text(fmt(group.subtotal), colAmt, y, { align: 'right' })
-      y += 14
+      pdf.text(`${group.title.toUpperCase()} SUBTOTAL`, colPrice, y + 12, { align: 'right' })
+      pdf.setFontSize(9); pdf.setTextColor(17, 24, 39)
+      pdf.text(fmt(group.subtotal), colAmt, y + 12, { align: 'right' })
+      y += 18 + 4
     }
   })
 
