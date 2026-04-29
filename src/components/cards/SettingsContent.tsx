@@ -436,12 +436,21 @@ export default function SettingsContent() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Choose an accent color applied to your document headers, section highlights, and PDF exports.</p>
                 <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Accent Color</label>
                 <div className="flex flex-wrap items-center gap-2 mb-3">
-                  {['#2563eb', '#7c3aed', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#be185d', '#374151'].map(c => (
-                    <button key={c} onClick={() => handleBrandColor(c)} title={c}
-                      className={`w-7 h-7 rounded-full border-2 transition-all ${brandColor === c ? 'scale-110' : 'border-transparent hover:scale-105'}`}
-                      style={{ backgroundColor: c, borderColor: brandColor === c ? '#111' : 'transparent' }} />
+                  {[
+                    { v: '#2563eb', g: 'linear-gradient(135deg,#60a5fa,#1d4ed8)' },
+                    { v: '#7c3aed', g: 'linear-gradient(135deg,#a78bfa,#5b21b6)' },
+                    { v: '#dc2626', g: 'linear-gradient(135deg,#f87171,#b91c1c)' },
+                    { v: '#16a34a', g: 'linear-gradient(135deg,#4ade80,#15803d)' },
+                    { v: '#d97706', g: 'linear-gradient(135deg,#fcd34d,#b45309)' },
+                    { v: '#0891b2', g: 'linear-gradient(135deg,#67e8f9,#0e7490)' },
+                    { v: '#be185d', g: 'linear-gradient(135deg,#f9a8d4,#9d174d)' },
+                    { v: '#374151', g: 'linear-gradient(135deg,#9ca3af,#1f2937)' },
+                  ].map(({ v, g }) => (
+                    <button key={v} onClick={() => handleBrandColor(v)} title={v}
+                      className={`w-7 h-7 rounded-full border-2 transition-all shadow-sm ${brandColor === v ? 'scale-110' : 'border-transparent hover:scale-105'}`}
+                      style={{ background: g, borderColor: brandColor === v ? '#111827' : 'transparent' }} />
                   ))}
-                  <label className="relative w-7 h-7 rounded-full overflow-hidden cursor-pointer border border-gray-200 dark:border-[#333] hover:scale-105 transition-all" title="Custom color">
+                  <label className="relative w-7 h-7 rounded-full overflow-hidden cursor-pointer border border-gray-200 dark:border-[#333] hover:scale-105 transition-all shadow-sm" title="Custom color">
                     <div className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)' }} />
                     <input type="color" value={brandColor} onChange={e => handleBrandColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
                   </label>

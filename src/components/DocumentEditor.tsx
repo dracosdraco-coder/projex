@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { X, Plus, Trash2, Save, Download, Eye, Copy } from 'lucide-react'
+import { X, Plus, Trash2, Save, Download, Eye, Copy, ChevronUp, ChevronDown } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -23,6 +23,18 @@ const TYPE_LABELS: Record<string, string> = {
   estimate: 'Estimate', invoice: 'Invoice', work_order: 'Work Order',
   change_order: 'Change Order', purchase_order: 'Purchase Order',
 }
+const TERMS_PRESETS = [
+  { id: 'net30',       label: 'Net 30',           text: 'Payment due within 30 days of invoice date.' },
+  { id: 'net15',       label: 'Net 15',           text: 'Payment due within 15 days of invoice date.' },
+  { id: 'due_receipt', label: 'Due on Receipt',   text: 'Payment due upon receipt of invoice.' },
+  { id: 'deposit50',   label: '50% Deposit',      text: '50% deposit required before work begins. Remaining balance due upon completion.' },
+  { id: 'materials',   label: 'Materials Deposit',text: 'Materials deposit required before ordering. Balance due upon project completion.' },
+  { id: 'valid30',     label: 'Valid 30 Days',    text: 'This estimate is valid for 30 days from the date of issue.' },
+  { id: 'permits',     label: 'Permits Excluded', text: 'Permit costs and fees are not included and will be billed separately.' },
+  { id: 'warranty',    label: '1-Year Warranty',  text: 'All workmanship is warranted for 1 year from the date of completion.' },
+  { id: 'changes',     label: 'Change Orders',    text: 'Any changes to scope require a written change order signed by both parties.' },
+  { id: 'lien',        label: 'Lien Rights',      text: 'Contractor reserves the right to file a mechanics lien if payment is not received per agreed terms.' },
+]
 
 // IMPORTANT: defined OUTSIDE the component so React doesn't re-mount on every render
 function FormInput({ label, value, onChange, type: t = 'text', className = '' }: {
@@ -86,6 +98,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const [docNumber, setDocNumber] = useState(draft?.docNumber ?? document?.documentNumber ?? `${type.toUpperCase().slice(0, 3)}-${String(Date.now()).slice(-6)}`)
   const [dateIssued, setDateIssued] = useState(draft?.dateIssued ?? document?.dateIssued ?? new Date().toISOString().split('T')[0])
   const [dateDue, setDateDue] = useState(draft?.dateDue ?? document?.dateDue ?? '')
+  const [scopeOfWork, setScopeOfWork] = useState(draft?.scopeOfWork ?? document?.scopeOfWork ?? '')
   const [terms, setTerms] = useState(draft?.terms ?? document?.terms ?? 'Payment due within 30 days of invoice date.')
   const [notes, setNotes] = useState(draft?.notes ?? document?.notes ?? '')
   const [taxRate, setTaxRate] = useState(draft?.taxRate ?? document?.taxRate ?? 0)
@@ -93,6 +106,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const [saveError, setSaveError] = useState('')
   const [showTemplates, setShowTemplates] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [showCostCols, setShowCostCols] = useState(false)
   const [activeTab, setActiveTab] = useState<'editor' | 'breakdown'>('editor')
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null)
 
@@ -137,13 +151,13 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
       localStorage.setItem(DRAFT_KEY, JSON.stringify({
         companyName, companyAddress, companyPhone, companyEmail,
         clientName, clientAddress, clientEmail, clientPhone,
-        projectId, docNumber, dateIssued, dateDue, terms, notes, taxRate,
+        projectId, docNumber, dateIssued, dateDue, scopeOfWork, terms, notes, taxRate,
         lineItems,
       }))
     } catch {}
   }, [DRAFT_KEY, companyName, companyAddress, companyPhone, companyEmail,
       clientName, clientAddress, clientEmail, clientPhone,
-      projectId, docNumber, dateIssued, dateDue, terms, notes, taxRate, lineItems])
+      projectId, docNumber, dateIssued, dateDue, scopeOfWork, terms, notes, taxRate, lineItems])
 
   const updateLineItem = (id: string, field: string, value: any) => {
     setLineItems(prev => prev.map(li => {
@@ -158,6 +172,17 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const addLineItem = () => setLineItems(prev => [...prev, { id: String(Date.now()), description: '', quantity: 1, unit: 'ea', cost: 0, markup: 20, price: 0 }])
   const addSection = () => setLineItems(prev => [...prev, { id: String(Date.now()), type: 'section' as const, description: 'Materials', quantity: 0, unit: 'ea', cost: 0, markup: 0, price: 0 }])
   const removeLineItem = (id: string) => { if (lineItems.length > 1) setLineItems(prev => prev.filter(li => li.id !== id)) }
+  const moveLineItem = (id: string, dir: 'up' | 'down') => {
+    setLineItems(prev => {
+      const idx = prev.findIndex(li => li.id === id)
+      if (idx < 0) return prev
+      const next = [...prev]
+      const swapIdx = dir === 'up' ? idx - 1 : idx + 1
+      if (swapIdx < 0 || swapIdx >= next.length) return prev
+      ;[next[idx], next[swapIdx]] = [next[swapIdx], next[idx]]
+      return next
+    })
+  }
 
   const applyTemplate = (t: any) => {
     if (!t?.items) return
@@ -194,6 +219,14 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   }, [lineItems])
   const hasSections = lineItems.some(li => li.type === 'section')
 
+  const toggleTermPreset = (preset: { text: string }) => {
+    if (terms.includes(preset.text)) {
+      setTerms(t => t.replace(preset.text, '').replace(/\n{3,}/g, '\n\n').trim())
+    } else {
+      setTerms(t => t ? `${t.trim()}\n${preset.text}` : preset.text)
+    }
+  }
+
   const buildSaveData = () => ({
     id: document?.id, type, documentNumber: docNumber, projectId: projectId || undefined,
     companyName, companyAddress, companyPhone, companyEmail,
@@ -202,7 +235,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
     lineItems: lineItems.map(li => ({ ...li, unitPrice: li.price })),
     subtotal, taxRate, taxTotal: taxAmount, total, costTotal: totalCost,
     profit: totalProfit, marginPercent: overallMargin,
-    terms, notes, status: document?.status || 'draft',
+    scopeOfWork, terms, notes, status: document?.status || 'draft',
   })
 
   const handleSave = async () => {
@@ -312,11 +345,29 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     <FormInput label="Due" value={dateDue} onChange={setDateDue} type="date" />
                   </div>
 
+                  {/* Scope of Work */}
+                  <div>
+                    <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">Scope of Work</label>
+                    <AutoTextarea
+                      value={scopeOfWork}
+                      onChange={setScopeOfWork}
+                      placeholder={"Describe the scope, deliverables, and coverage.\nUse - or • to start a bullet point line."}
+                      className="text-xs min-h-[64px]"
+                    />
+                  </div>
+
                   {/* Line Items */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <h4 className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 uppercase">Line Items</h4>
-                      <div className="flex gap-1 relative">
+                      <div className="flex gap-1 relative items-center">
+                        <button
+                          onClick={() => setShowCostCols(v => !v)}
+                          title="Toggle cost/markup columns"
+                          className={`px-2 py-0.5 text-[10px] rounded flex items-center gap-0.5 ${showCostCols ? 'text-amber-700 bg-amber-50 dark:bg-amber-900/20' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-[#2a2a2a]'}`}
+                        >
+                          $ Costs
+                        </button>
                         {lineItemTemplates.length > 0 && (
                           <div className="relative">
                             <button onClick={() => setShowTemplates(!showTemplates)} className="px-2 py-0.5 text-[10px] text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded flex items-center gap-0.5">
@@ -339,31 +390,39 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                       </div>
                     </div>
 
-                    <div className="overflow-x-auto">
-                    <div className="min-w-[500px]">
-                    <div className="grid grid-cols-[1fr_50px_55px_70px_50px_70px_70px_44px] gap-1 text-[9px] font-medium text-gray-400 uppercase px-0.5 mb-0.5">
-                      <span>Description</span><span>Qty</span><span>Unit</span><span>Cost</span><span>Mkp%</span><span>Price</span><span>Total</span><span />
+                    {/* Desktop grid */}
+                    <div className="hidden sm:block overflow-x-auto">
+                    <div className={showCostCols ? 'min-w-[580px]' : 'min-w-[400px]'}>
+                    <div className={`grid gap-1 text-[9px] font-medium text-gray-400 uppercase px-0.5 mb-0.5 ${showCostCols ? 'grid-cols-[1fr_50px_52px_68px_48px_68px_70px_56px]' : 'grid-cols-[1fr_50px_52px_80px_72px_56px]'}`}>
+                      <span>Description</span><span>Qty</span><span>UOM</span>
+                      {showCostCols && <><span>Cost</span><span>Mkp%</span></>}
+                      <span>Unit Price</span><span>Total</span><span />
                     </div>
 
                     <div className="space-y-1">
-                      {lineItems.map(li => {
+                      {lineItems.map((li, liIdx) => {
                         if (li.type === 'section') {
                           return (
                             <div key={li.id} className="flex items-center gap-2 pt-2.5 pb-0.5 group -mx-0.5 px-0.5">
-                              <div className="w-1.5 h-1.5 rounded-sm bg-blue-600 flex-shrink-0" />
+                              <div className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ backgroundColor: accentColor }} />
                               <input
                                 value={li.description}
                                 onChange={e => updateLineItem(li.id, 'description', e.target.value)}
                                 placeholder="Section name…"
-                                className="flex-1 bg-transparent border-none text-[10px] font-bold uppercase tracking-widest text-blue-700 dark:text-blue-400 focus:outline-none p-0 placeholder-blue-300"
+                                className="flex-1 bg-transparent border-none text-[10px] font-bold uppercase tracking-widest focus:outline-none p-0"
+                                style={{ color: accentColor }}
                               />
-                              <button onClick={() => removeLineItem(li.id)} className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-500 flex-shrink-0"><Trash2 className="w-3 h-3" /></button>
+                              <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5">
+                                <button onClick={() => moveLineItem(li.id, 'up')} className="p-0.5 text-gray-300 hover:text-gray-600"><ChevronUp className="w-3 h-3" /></button>
+                                <button onClick={() => moveLineItem(li.id, 'down')} className="p-0.5 text-gray-300 hover:text-gray-600"><ChevronDown className="w-3 h-3" /></button>
+                                <button onClick={() => removeLineItem(li.id)} className="p-0.5 text-gray-300 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                              </div>
                             </div>
                           )
                         }
                         return (
                           <div key={li.id} className="group">
-                            <div className="grid grid-cols-[1fr_50px_55px_70px_50px_70px_70px_44px] gap-1 items-start">
+                            <div className={`grid gap-1 items-start ${showCostCols ? 'grid-cols-[1fr_50px_52px_68px_48px_68px_70px_56px]' : 'grid-cols-[1fr_50px_52px_80px_72px_56px]'}`}>
                               <textarea
                                 value={li.description}
                                 onChange={e => updateLineItem(li.id, 'description', e.target.value)}
@@ -374,22 +433,26 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                               />
                               <input type="number" value={li.quantity} onChange={e => updateLineItem(li.id, 'quantity', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
                               <select value={li.unit} onChange={e => updateLineItem(li.id, 'unit', e.target.value)} className="px-0.5 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-[10px] focus:outline-none">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
-                              <input type="number" value={li.cost} onChange={e => updateLineItem(li.id, 'cost', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                              <input type="number" value={Math.round(li.markup)} onChange={e => updateLineItem(li.id, 'markup', Number(e.target.value))} className="px-1 py-1 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                              {showCostCols && <>
+                                <input type="number" value={li.cost} onChange={e => updateLineItem(li.id, 'cost', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                                <input type="number" value={Math.round(li.markup)} onChange={e => updateLineItem(li.id, 'markup', Number(e.target.value))} className="px-1 py-1 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                              </>}
                               <input type="number" value={Number(li.price.toFixed(2))} onChange={e => updateLineItem(li.id, 'price', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                              <span className="text-xs font-medium text-gray-900 dark:text-gray-100 text-right tabular-nums pr-0.5 pt-1">{fmt(li.quantity * li.price)}</span>
-                              <span className="flex items-center gap-0.5 pt-0.5">
+                              <span className="text-xs font-medium text-gray-900 dark:text-gray-100 text-right tabular-nums pt-1">{fmt(li.quantity * li.price)}</span>
+                              <span className="flex items-center gap-0.5 pt-0.5 opacity-0 group-hover:opacity-100">
+                                <button onClick={() => moveLineItem(li.id, 'up')} className="p-0.5 text-gray-300 hover:text-gray-600"><ChevronUp className="w-2.5 h-2.5" /></button>
+                                <button onClick={() => moveLineItem(li.id, 'down')} className="p-0.5 text-gray-300 hover:text-gray-600"><ChevronDown className="w-2.5 h-2.5" /></button>
                                 {li.photo ? (
-                                  <button onClick={() => setExpandedPhoto(li.photo!)} className="relative flex-shrink-0">
-                                    <img src={li.photo} alt="" className="w-7 h-7 rounded object-cover border border-gray-200" />
-                                    <span onClick={e => { e.stopPropagation(); updateLineItem(li.id, 'photo', '') }} className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[7px] flex items-center justify-center leading-none cursor-pointer">✕</span>
+                                  <button onClick={() => setExpandedPhoto(li.photo!)} className="relative">
+                                    <img src={li.photo} alt="" className="w-5 h-5 rounded object-cover border border-gray-200" />
+                                    <span onClick={e => { e.stopPropagation(); updateLineItem(li.id, 'photo', '') }} className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 text-white rounded-full text-[7px] flex items-center justify-center cursor-pointer">✕</span>
                                   </button>
                                 ) : (
-                                  <label className="p-0.5 text-gray-300 hover:text-blue-500 cursor-pointer opacity-0 group-hover:opacity-100 text-[10px]">
+                                  <label className="p-0.5 text-gray-300 hover:text-blue-500 cursor-pointer text-[9px]">
                                     📷<input type="file" accept="image/*" className="hidden" onChange={e => handleLineItemPhoto(li.id, e)} />
                                   </label>
                                 )}
-                                <button onClick={() => removeLineItem(li.id)} className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>
+                                <button onClick={() => removeLineItem(li.id)} className="p-0.5 text-gray-300 hover:text-red-500"><Trash2 className="w-2.5 h-2.5" /></button>
                               </span>
                             </div>
                           </div>
@@ -397,6 +460,57 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                       })}
                     </div>
                     </div>
+                    </div>
+
+                    {/* Mobile card list */}
+                    <div className="sm:hidden space-y-2">
+                      {lineItems.map((li, liIdx) => {
+                        if (li.type === 'section') return (
+                          <div key={li.id} className="flex items-center gap-2 pt-3 pb-1">
+                            <div className="w-1.5 h-1.5 rounded-sm flex-shrink-0" style={{ backgroundColor: accentColor }} />
+                            <input value={li.description} onChange={e => updateLineItem(li.id, 'description', e.target.value)}
+                              placeholder="Section name…" className="flex-1 bg-transparent border-none text-[10px] font-bold uppercase tracking-widest focus:outline-none p-0" style={{ color: accentColor }} />
+                            <button onClick={() => removeLineItem(li.id)} className="p-0.5 text-gray-300 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                          </div>
+                        )
+                        return (
+                          <div key={li.id} className="bg-gray-50 dark:bg-[#222] rounded-xl p-2.5 space-y-2">
+                            <textarea value={li.description} onChange={e => updateLineItem(li.id, 'description', e.target.value)}
+                              onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
+                              placeholder="Item description" rows={1}
+                              className="w-full bg-transparent border-none text-sm text-gray-900 dark:text-gray-100 focus:outline-none resize-none overflow-hidden leading-snug p-0 font-medium" />
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1 flex-1">
+                                <input type="number" value={li.quantity} onChange={e => updateLineItem(li.id, 'quantity', Number(e.target.value))}
+                                  className="w-14 px-2 py-1 bg-white dark:bg-[#333] border border-gray-200 dark:border-[#444] rounded text-xs text-center focus:outline-none" />
+                                <select value={li.unit} onChange={e => updateLineItem(li.id, 'unit', e.target.value)}
+                                  className="px-1 py-1 bg-white dark:bg-[#333] border border-gray-200 dark:border-[#444] rounded text-xs focus:outline-none">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
+                                <span className="text-[9px] text-gray-400">×</span>
+                                <input type="number" value={Number(li.price.toFixed(2))} onChange={e => updateLineItem(li.id, 'price', Number(e.target.value))}
+                                  className="w-20 px-2 py-1 bg-white dark:bg-[#333] border border-gray-200 dark:border-[#444] rounded text-xs text-right focus:outline-none" />
+                              </div>
+                              <span className="text-sm font-bold tabular-nums text-gray-900 dark:text-gray-100 shrink-0">{fmt(li.quantity * li.price)}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              {showCostCols && (
+                                <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+                                  <span>Cost</span>
+                                  <input type="number" value={li.cost} onChange={e => updateLineItem(li.id, 'cost', Number(e.target.value))}
+                                    className="w-16 px-1.5 py-0.5 bg-white dark:bg-[#333] border border-gray-200 dark:border-[#444] rounded text-right focus:outline-none" />
+                                  <span>Mkp%</span>
+                                  <input type="number" value={Math.round(li.markup)} onChange={e => updateLineItem(li.id, 'markup', Number(e.target.value))}
+                                    className="w-12 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-right focus:outline-none" />
+                                </div>
+                              )}
+                              <div className="ml-auto flex items-center gap-1">
+                                <button onClick={() => moveLineItem(li.id, 'up')} className="p-1 text-gray-300 hover:text-gray-600"><ChevronUp className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => moveLineItem(li.id, 'down')} className="p-1 text-gray-300 hover:text-gray-600"><ChevronDown className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => removeLineItem(li.id)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
 
@@ -414,9 +528,23 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     <div className="flex justify-between text-sm font-bold border-t border-gray-200 dark:border-[#333] pt-1.5"><span>Total</span><span className="tabular-nums">{fmt(total)}</span></div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <AutoTextarea label="Terms" value={terms} onChange={setTerms} className="text-xs min-h-[64px]" />
-                    <AutoTextarea label="Notes" value={notes} onChange={setNotes} className="text-xs min-h-[64px]" />
+                  <div className="space-y-2">
+                    <div>
+                      <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Terms</label>
+                      <div className="flex flex-wrap gap-1 mb-1.5">
+                        {TERMS_PRESETS.map(p => {
+                          const active = terms.includes(p.text)
+                          return (
+                            <button key={p.id} onClick={() => toggleTermPreset(p)}
+                              className={`px-2 py-0.5 text-[10px] rounded-full border transition-all ${active ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'border-gray-200 dark:border-[#333] text-gray-500 dark:text-gray-400 hover:border-gray-400'}`}>
+                              {active ? '✓ ' : ''}{p.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                      <AutoTextarea value={terms} onChange={setTerms} className="text-xs min-h-[48px]" />
+                    </div>
+                    <AutoTextarea label="Notes" value={notes} onChange={setNotes} className="text-xs min-h-[48px]" />
                   </div>
                 </div>
               ) : (
@@ -509,6 +637,26 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                   </div>
                 </div>
 
+                {/* Scope of Work */}
+                {scopeOfWork && (
+                  <div className="px-10 py-5 border-b border-gray-100">
+                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-2" style={{ fontFamily: 'system-ui' }}>Scope of Work</div>
+                    <div className="space-y-0.5" style={{ fontFamily: 'system-ui' }}>
+                      {scopeOfWork.split('\n').map((line, i) => {
+                        const isBullet = /^[-•]\s/.test(line)
+                        const text = isBullet ? line.replace(/^[-•]\s+/, '') : line
+                        if (!line.trim()) return <div key={i} className="h-1.5" />
+                        return (
+                          <div key={i} className={`flex ${isBullet ? 'gap-2 items-start' : ''}`}>
+                            {isBullet && <span className="text-[9.5px] mt-0.5 shrink-0" style={{ color: accentColor }}>•</span>}
+                            <span className="text-[9.5px] text-gray-700 leading-relaxed">{text}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Line items */}
                 <div className="px-10 pt-6">
                   <table className="w-full text-[9.5px]" style={{ fontFamily: 'system-ui' }}>
@@ -582,7 +730,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
 
                 {/* Terms / Notes */}
                 {(terms || notes) && (
-                  <div className={`px-10 pb-10 border-t border-gray-100 pt-5 ${terms && notes ? 'grid grid-cols-2 gap-6' : ''}`} style={{ fontFamily: 'system-ui' }}>
+                  <div className={`px-10 pt-5 border-t border-gray-100 ${terms && notes ? 'grid grid-cols-2 gap-6 pb-6' : 'pb-6'}`} style={{ fontFamily: 'system-ui' }}>
                     {terms && (
                       <div>
                         <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Terms</div>
@@ -597,6 +745,24 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     )}
                   </div>
                 )}
+
+                {/* Signature block */}
+                <div className="px-10 pt-6 pb-10 border-t border-gray-100" style={{ fontFamily: 'system-ui' }}>
+                  <div className="grid grid-cols-2 gap-10">
+                    <div>
+                      <div className="h-8" />
+                      <div className="border-b border-gray-400 mb-1.5" />
+                      <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400">Client Signature / Date</div>
+                      <div className="text-[9px] text-gray-400 mt-0.5">{clientName || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="h-8" />
+                      <div className="border-b border-gray-400 mb-1.5" />
+                      <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400">Authorized Signature / Date</div>
+                      <div className="text-[9px] text-gray-400 mt-0.5">{companyName || '—'}</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

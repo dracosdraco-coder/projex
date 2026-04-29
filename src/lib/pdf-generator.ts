@@ -102,6 +102,32 @@ function generateFinancialPDF(doc: any): string {
 
   y = blockY + blockH + 16
 
+  // Scope of Work
+  const sowText = (doc.scopeOfWork || '').trim()
+  if (sowText) {
+    checkPage(30)
+    pdf.setDrawColor(229, 231, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 12
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
+    pdf.text('SCOPE OF WORK', M, y); y += 10
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(55, 65, 81)
+    const sowLines = sowText.split('\n')
+    sowLines.forEach((line: string) => {
+      if (!line.trim()) { y += 4; return }
+      const isBullet = /^[-•]\s/.test(line)
+      const text = isBullet ? line.replace(/^[-•]\s+/, '') : line
+      const wrapped: string[] = pdf.splitTextToSize(text, W - M * 2 - (isBullet ? 10 : 0))
+      checkPage(wrapped.length * 12 + 4)
+      if (isBullet) {
+        pdf.setFillColor(aR, aG, aB); pdf.circle(M + 3, y - 2.5, 2, 'F')
+        wrapped.forEach((l: string, wi: number) => { pdf.text(l, M + 9, y + wi * 12); })
+      } else {
+        wrapped.forEach((l: string, wi: number) => { pdf.text(l, M, y + wi * 12) })
+      }
+      y += wrapped.length * 12 + 2
+    })
+    y += 6
+  }
+
   // Line items table
   const allItems = doc.lineItems || []
   const colDesc = M
@@ -223,6 +249,22 @@ function generateFinancialPDF(doc: any): string {
       y = Math.max(y, noteY)
     }
   }
+
+  // Signature block
+  checkPage(80)
+  y += 10
+  pdf.setDrawColor(229, 231, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 22
+  const sigMid = W / 2 + 10
+  const sigW = sigMid - M - 20
+  pdf.setDrawColor(156, 163, 175); pdf.setLineWidth(0.5)
+  pdf.line(M, y + 28, M + sigW, y + 28)
+  pdf.line(sigMid, y + 28, sigMid + sigW, y + 28)
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor(156, 163, 175)
+  pdf.text('CLIENT SIGNATURE / DATE', M, y + 36)
+  pdf.text('AUTHORIZED SIGNATURE / DATE', sigMid, y + 36)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
+  pdf.text(doc.clientName || '—', M, y + 44)
+  pdf.text(doc.companyName || '—', sigMid, y + 44)
 
   const filename = `${doc.documentNumber || doc.type || 'document'}.pdf`
   pdf.save(filename)
