@@ -642,7 +642,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                   <div className="px-10 py-5 border-b border-gray-100">
                     <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-2" style={{ fontFamily: 'system-ui' }}>Scope of Work</div>
                     <div className="space-y-0.5" style={{ fontFamily: 'system-ui' }}>
-                      {scopeOfWork.split('\n').map((line, i) => {
+                      {scopeOfWork.split('\n').map((line: string, i: number) => {
                         const isBullet = /^[-•]\s/.test(line)
                         const text = isBullet ? line.replace(/^[-•]\s+/, '') : line
                         if (!line.trim()) return <div key={i} className="h-1.5" />
