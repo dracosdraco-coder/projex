@@ -282,6 +282,33 @@ function generateFinancialPDF(doc: any): string {
   pdf.text(doc.clientName || '—', M, y + 44)
   pdf.text(doc.companyName || '—', sigMid, y + 44)
 
+  // Photo attachments — one full page each
+  const photoAttachments = (doc.attachments || []).filter((a: any) => a.type === 'photo')
+  photoAttachments.forEach((a: any, idx: number) => {
+    pdf.addPage()
+    y = M
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
+    pdf.text(`PHOTO ${idx + 1} OF ${photoAttachments.length}`, M, y)
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
+    pdf.text(a.name, W / 2, y, { align: 'center' })
+    y += 14
+    const imgFormat = (a.mimeType || '').includes('png') ? 'PNG' : 'JPEG'
+    try { pdf.addImage(a.data, imgFormat, M, y, W - M * 2, H - y - M, undefined, 'FAST') } catch { /* skip unsupported */ }
+  })
+
+  // PDF attachments — listing page (jsPDF cannot merge PDFs)
+  const pdfAttachments = (doc.attachments || []).filter((a: any) => a.type === 'pdf')
+  if (pdfAttachments.length > 0) {
+    pdf.addPage()
+    y = M
+    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(17, 24, 39)
+    pdf.text('Attached Documents', M, y); y += 20
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(107, 114, 128)
+    pdfAttachments.forEach((a: any) => { pdf.text(`• ${a.name}`, M, y); y += 14 })
+    pdf.setFontSize(8); pdf.setTextColor(156, 163, 175)
+    pdf.text('PDF attachments are included separately.', M, y + 10)
+  }
+
   const filename = `${doc.documentNumber || doc.type || 'document'}.pdf`
   pdf.save(filename)
   return filename

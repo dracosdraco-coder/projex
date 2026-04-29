@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { X, Plus, Trash2, Save, Download, Eye, Copy, ChevronUp, ChevronDown } from 'lucide-react'
+import { X, Plus, Trash2, Save, Download, Eye, Copy, ChevronUp, ChevronDown, Paperclip } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -9,6 +9,10 @@ interface LineItem {
   id: string; description: string; quantity: number; unit: string
   cost: number; markup: number; price: number; photo?: string
   type?: 'item' | 'section'
+}
+
+interface Attachment {
+  id: string; name: string; type: 'photo' | 'pdf'; data: string; mimeType: string
 }
 
 interface DocumentEditorProps {
@@ -109,6 +113,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const [showCostCols, setShowCostCols] = useState(false)
   const [activeTab, setActiveTab] = useState<'editor' | 'breakdown'>('editor')
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null)
+  const [attachments, setAttachments] = useState<Attachment[]>(draft?.attachments ?? document?.attachments ?? [])
 
   const [lineItems, setLineItems] = useState<LineItem[]>(
     draft?.lineItems ||
@@ -152,12 +157,12 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
         companyName, companyAddress, companyPhone, companyEmail,
         clientName, clientAddress, clientEmail, clientPhone,
         projectId, docNumber, dateIssued, dateDue, scopeOfWork, terms, notes, taxRate,
-        lineItems,
+        lineItems, attachments,
       }))
     } catch {}
   }, [DRAFT_KEY, companyName, companyAddress, companyPhone, companyEmail,
       clientName, clientAddress, clientEmail, clientPhone,
-      projectId, docNumber, dateIssued, dateDue, scopeOfWork, terms, notes, taxRate, lineItems])
+      projectId, docNumber, dateIssued, dateDue, scopeOfWork, terms, notes, taxRate, lineItems, attachments])
 
   const updateLineItem = (id: string, field: string, value: any) => {
     setLineItems(prev => prev.map(li => {
@@ -236,6 +241,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
     subtotal, taxRate, taxTotal: taxAmount, total, costTotal: totalCost,
     profit: totalProfit, marginPercent: overallMargin,
     scopeOfWork, terms, notes, status: document?.status || 'draft',
+    attachments,
   })
 
   const handleSave = async () => {
@@ -258,6 +264,25 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
       setSaveError(err?.message || 'Save failed before export.')
     } finally { setSaving(false) }
   }
+
+  const handleDocAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+    Array.from(e.target.files || []).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (ev) => {
+        const data = ev.target?.result as string
+        setAttachments(prev => [...prev, {
+          id: String(Date.now() + Math.random()),
+          name: file.name,
+          type: file.type.startsWith('image/') ? 'photo' : 'pdf',
+          data,
+          mimeType: file.type,
+        }])
+      }
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }
+  const removeAttachment = (id: string) => setAttachments(prev => prev.filter(a => a.id !== id))
 
   const handleLineItemPhoto = (liId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
@@ -546,6 +571,39 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     </div>
                     <AutoTextarea label="Notes" value={notes} onChange={setNotes} className="text-xs min-h-[48px]" />
                   </div>
+
+                  {/* Attachments */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        Attachments <span className="font-normal normal-case tracking-normal text-gray-300 dark:text-gray-600">photos & PDFs</span>
+                      </label>
+                      <label className="px-2 py-0.5 text-[10px] text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded flex items-center gap-0.5 cursor-pointer">
+                        <Paperclip className="w-3 h-3" /> Attach
+                        <input type="file" accept="image/*,application/pdf" multiple className="hidden" onChange={handleDocAttachment} />
+                      </label>
+                    </div>
+                    {attachments.length > 0 && (
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                        {attachments.map(a => (
+                          <div key={a.id} className="relative group">
+                            {a.type === 'photo' ? (
+                              <div className="aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-[#333] cursor-pointer" onClick={() => setExpandedPhoto(a.data)}>
+                                <img src={a.data} alt={a.name} className="w-full h-full object-cover" />
+                              </div>
+                            ) : (
+                              <div className="aspect-square rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 flex flex-col items-center justify-center gap-0.5 p-1">
+                                <Paperclip className="w-4 h-4 text-red-400" />
+                                <span className="text-[7px] text-red-500 text-center truncate w-full leading-tight">{a.name}</span>
+                              </div>
+                            )}
+                            <button onClick={() => removeAttachment(a.id)}
+                              className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[9px] hidden group-hover:flex items-center justify-center">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="p-4 space-y-4">
@@ -590,24 +648,24 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
           {/* RIGHT: Preview */}
           {showPreview && (
             <div className="h-[50%] sm:h-full sm:w-[45%] bg-gray-200 dark:bg-[#0d0d0d] overflow-y-auto flex items-start justify-center p-4">
-              <div className="bg-white w-full max-w-[612px] min-h-[792px] shadow-xl overflow-hidden" style={{ fontFamily: 'Georgia, serif' }}>
+              <div className="bg-white w-full max-w-[612px] min-h-[792px] shadow-xl overflow-hidden">
                 {/* Accent bar */}
                 <div className="h-[5px]" style={{ backgroundColor: accentColor }} />
 
                 {/* Header */}
                 <div className="px-10 pt-8 pb-6 flex justify-between items-start border-b border-gray-100">
                   <div>
-                    <div className="text-[15px] font-bold text-gray-900 tracking-tight" style={{ fontFamily: 'system-ui' }}>{companyName || 'Your Company'}</div>
-                    {companyAddress && <div className="text-[9.5px] text-gray-400 mt-1 whitespace-pre-line leading-relaxed" style={{ fontFamily: 'system-ui' }}>{companyAddress}</div>}
-                    <div className="text-[9.5px] text-gray-400 mt-0.5" style={{ fontFamily: 'system-ui' }}>
+                    <div className="text-[15px] font-bold text-gray-900 tracking-tight">{companyName || 'Your Company'}</div>
+                    {companyAddress && <div className="text-[9.5px] text-gray-400 mt-1 whitespace-pre-line leading-relaxed">{companyAddress}</div>}
+                    <div className="text-[9.5px] text-gray-400 mt-0.5">
                       {companyPhone && <span>{companyPhone}</span>}
                       {companyPhone && companyEmail && <span className="mx-1.5 text-gray-300">·</span>}
                       {companyEmail && <span>{companyEmail}</span>}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[22px] font-black text-gray-900 uppercase tracking-tight leading-none" style={{ fontFamily: 'system-ui' }}>{TYPE_LABELS[type]}</div>
-                    <div className="mt-2 space-y-0.5 text-[9.5px]" style={{ fontFamily: 'system-ui' }}>
+                    <div className="text-[22px] font-black text-gray-900 uppercase tracking-tight leading-none">{TYPE_LABELS[type]}</div>
+                    <div className="mt-2 space-y-0.5 text-[9.5px]">
                       <div className="font-mono text-gray-400">#{docNumber}</div>
                       <div className="text-gray-400">Issued {dateIssued}</div>
                       {dateDue && <div className="font-semibold text-orange-500">Due {dateDue}</div>}
@@ -620,28 +678,28 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                   <div className="flex gap-3">
                     <div className="w-[3px] self-stretch rounded-sm" style={{ backgroundColor: accentColor }} />
                     <div>
-                      <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5" style={{ fontFamily: 'system-ui' }}>{type === 'invoice' ? 'Bill To' : 'Prepared For'}</div>
-                      <div className="text-[12px] font-bold text-gray-900" style={{ fontFamily: 'system-ui' }}>{clientName || '—'}</div>
-                      {clientAddress && <div className="text-[9.5px] text-gray-500 whitespace-pre-line mt-0.5 leading-relaxed" style={{ fontFamily: 'system-ui' }}>{clientAddress}</div>}
+                      <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">{type === 'invoice' ? 'Bill To' : 'Prepared For'}</div>
+                      <div className="text-[12px] font-bold text-gray-900">{clientName || '—'}</div>
+                      {clientAddress && <div className="text-[9.5px] text-gray-500 whitespace-pre-line mt-0.5 leading-relaxed">{clientAddress}</div>}
                       {(clientEmail || clientPhone) && (
-                        <div className="text-[9.5px] text-gray-400 mt-0.5" style={{ fontFamily: 'system-ui' }}>
+                        <div className="text-[9.5px] text-gray-400 mt-0.5">
                           {clientPhone}{clientPhone && clientEmail && ' · '}{clientEmail}
                         </div>
                       )}
                     </div>
                   </div>
                   <div className="text-right shrink-0 ml-4">
-                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5" style={{ fontFamily: 'system-ui' }}>Amount Due</div>
-                    <div className="text-[22px] font-black tabular-nums leading-none" style={{ color: accentColor, fontFamily: 'system-ui' }}>{fmt(total)}</div>
-                    {dateDue && <div className="text-[9px] text-gray-400 mt-1" style={{ fontFamily: 'system-ui' }}>due {dateDue}</div>}
+                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Amount Due</div>
+                    <div className="text-[22px] font-black tabular-nums leading-none" style={{ color: accentColor }}>{fmt(total)}</div>
+                    {dateDue && <div className="text-[9px] text-gray-400 mt-1">due {dateDue}</div>}
                   </div>
                 </div>
 
                 {/* Scope of Work */}
                 {scopeOfWork && (
                   <div className="px-10 py-5 border-b border-gray-100">
-                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-2" style={{ fontFamily: 'system-ui' }}>Scope of Work</div>
-                    <div className="space-y-0.5" style={{ fontFamily: 'system-ui' }}>
+                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-2">Scope of Work</div>
+                    <div className="space-y-0.5">
                       {scopeOfWork.split('\n').map((line: string, i: number) => {
                         const isBullet = /^[-•]\s/.test(line)
                         const text = isBullet ? line.replace(/^[-•]\s+/, '') : line
@@ -659,7 +717,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
 
                 {/* Line items */}
                 <div className="px-10 pt-6">
-                  <table className="w-full text-[9.5px]" style={{ fontFamily: 'system-ui' }}>
+                  <table className="w-full text-[9.5px]">
                     <thead>
                       <tr style={{ borderBottom: '2px solid #111827' }}>
                         <th className="text-left pb-2 font-bold text-[7.5px] uppercase tracking-widest text-gray-400">Description</th>
@@ -717,7 +775,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                 {/* Totals */}
                 <div className="px-10 py-6">
                   <div className="flex justify-end">
-                    <div className="w-56 space-y-1" style={{ fontFamily: 'system-ui', fontSize: '9.5px' }}>
+                    <div className="w-56 space-y-1" style={{ fontSize: '9.5px' }}>
                       <div className="flex justify-between text-gray-500"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
                       {taxRate > 0 && <div className="flex justify-between text-gray-500"><span>Tax ({taxRate}%)</span><span className="tabular-nums">{fmt(taxAmount)}</span></div>}
                       <div className="flex justify-between items-baseline pt-3 mt-2 border-t-[1.5px]" style={{ borderColor: accentColor }}>
@@ -730,7 +788,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
 
                 {/* Terms / Notes */}
                 {(terms || notes) && (
-                  <div className={`px-10 pt-5 border-t border-gray-100 ${terms && notes ? 'grid grid-cols-2 gap-6 pb-6' : 'pb-6'}`} style={{ fontFamily: 'system-ui' }}>
+                  <div className={`px-10 pt-5 border-t border-gray-100 ${terms && notes ? 'grid grid-cols-2 gap-6 pb-6' : 'pb-6'}`}>
                     {terms && (
                       <div>
                         <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Terms</div>
@@ -747,7 +805,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                 )}
 
                 {/* Signature block */}
-                <div className="px-10 pt-6 pb-10 border-t border-gray-100" style={{ fontFamily: 'system-ui' }}>
+                <div className="px-10 pt-6 pb-10 border-t border-gray-100">
                   <div className="grid grid-cols-2 gap-10">
                     <div>
                       <div className="h-8" />
@@ -763,6 +821,36 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     </div>
                   </div>
                 </div>
+
+                {/* Photo attachments */}
+                {attachments.filter(a => a.type === 'photo').length > 0 && (
+                  <div className="px-10 pt-5 pb-8 border-t border-gray-100">
+                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-3">Attached Photos</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {attachments.filter(a => a.type === 'photo').map(a => (
+                        <div key={a.id} className="aspect-[4/3] rounded overflow-hidden bg-gray-50 cursor-pointer" onClick={() => setExpandedPhoto(a.data)}>
+                          <img src={a.data} alt={a.name} className="w-full h-full object-cover" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* PDF attachments */}
+                {attachments.filter(a => a.type === 'pdf').length > 0 && (
+                  <div className="px-10 pb-8">
+                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-2">Attached Documents</div>
+                    <div className="space-y-1.5">
+                      {attachments.filter(a => a.type === 'pdf').map(a => (
+                        <a key={a.id} href={a.data} download={a.name}
+                          className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded text-[9px] text-gray-600 hover:bg-gray-100">
+                          <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
+                          <span className="truncate">{a.name}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
