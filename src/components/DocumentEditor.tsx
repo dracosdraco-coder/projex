@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { X, Plus, Trash2, Save, Download, Eye, Copy } from 'lucide-react'
 
 interface LineItem {
@@ -30,6 +30,27 @@ function FormInput({ label, value, onChange, type: t = 'text', className = '' }:
       <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">{label}</label>
       <input type={t} value={value} onChange={(e) => onChange(e.target.value)}
         className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+    </div>
+  )
+}
+
+// Grows to fit content on mount and on every change — user can always see what they typed
+function AutoTextarea({ label, value, onChange, className = '', ...props }: {
+  label?: string; value: string; onChange: (v: string) => void; className?: string
+} & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange' | 'value'>) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = el.scrollHeight + 'px'
+  }, [value])
+  return (
+    <div>
+      {label && <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">{label}</label>}
+      <textarea ref={ref} value={value} onChange={e => onChange(e.target.value)}
+        className={`w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none overflow-hidden min-h-[52px] ${className}`}
+        {...props} />
     </div>
   )
 }
@@ -166,7 +187,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const pct = (n: number) => `${n.toFixed(1)}%`
 
   return (
-    <div className="fixed inset-0 z-[500] flex items-end sm:items-center justify-center sm:p-2" style={{ animation: 'popup-in 0.15s ease-out' }}>
+    <div className="fixed inset-0 z-[10000] flex items-end sm:items-center justify-center sm:p-2" style={{ animation: 'popup-in 0.15s ease-out' }}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative bg-white dark:bg-[#1a1a1a] rounded-t-3xl sm:rounded-2xl w-full sm:max-w-[96vw] h-[96vh] sm:h-[93vh] flex flex-col shadow-2xl border border-gray-200 dark:border-[#2a2a2a] overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -218,11 +239,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     <div className="space-y-1.5">
                       <h4 className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 uppercase">From</h4>
                       <FormInput label="Company" value={companyName} onChange={setCompanyName} />
-                      <div>
-                        <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">Address</label>
-                        <textarea value={companyAddress} onChange={e => setCompanyAddress(e.target.value)} rows={2}
-                          className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y min-h-[52px]" />
-                      </div>
+                      <AutoTextarea label="Address" value={companyAddress} onChange={setCompanyAddress} />
                       <div className="grid grid-cols-2 gap-1.5">
                         <FormInput label="Phone" value={companyPhone} onChange={setCompanyPhone} />
                         <FormInput label="Email" value={companyEmail} onChange={setCompanyEmail} />
@@ -231,11 +248,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     <div className="space-y-1.5">
                       <h4 className="text-[10px] font-semibold text-gray-700 dark:text-gray-300 uppercase">To</h4>
                       <FormInput label="Client" value={clientName} onChange={setClientName} />
-                      <div>
-                        <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">Address</label>
-                        <textarea value={clientAddress} onChange={e => setClientAddress(e.target.value)} rows={2}
-                          className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-y min-h-[52px]" />
-                      </div>
+                      <AutoTextarea label="Address" value={clientAddress} onChange={setClientAddress} />
                       <div className="grid grid-cols-2 gap-1.5">
                         <FormInput label="Phone" value={clientPhone} onChange={setClientPhone} />
                         <FormInput label="Email" value={clientEmail} onChange={setClientEmail} />
@@ -328,14 +341,8 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-medium text-gray-500 mb-0.5 uppercase">Terms</label>
-                      <textarea value={terms} onChange={e => setTerms(e.target.value)} rows={3} className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs resize-y min-h-[64px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-gray-500 mb-0.5 uppercase">Notes</label>
-                      <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full px-2 py-1.5 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs resize-y min-h-[64px] focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                    </div>
+                    <AutoTextarea label="Terms" value={terms} onChange={setTerms} className="text-xs min-h-[64px]" />
+                    <AutoTextarea label="Notes" value={notes} onChange={setNotes} className="text-xs min-h-[64px]" />
                   </div>
                 </div>
               ) : (

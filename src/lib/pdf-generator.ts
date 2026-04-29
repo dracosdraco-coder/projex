@@ -68,14 +68,19 @@ function generateFinancialPDF(doc: any): string {
 
   // Bill To (left) + Amount Due (right)
   const blockY = y
-  // Blue left accent bar
-  pdf.setFillColor(37, 99, 235); pdf.rect(M, blockY, 3, 42, 'F')
+  // Split multi-line address (user can type Enter in the address field)
+  const addrLines: string[] = doc.clientAddress
+    ? doc.clientAddress.split('\n').flatMap((l: string) => pdf.splitTextToSize(l.trim(), W / 2 - M - 20) as string[])
+    : []
+  const blockH = Math.max(42, 30 + addrLines.length * 11)
+
+  pdf.setFillColor(37, 99, 235); pdf.rect(M, blockY, 3, blockH, 'F')
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
   pdf.text('BILL TO', M + 8, blockY + 11)
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(17, 24, 39)
   pdf.text(doc.clientName || '—', M + 8, blockY + 24)
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(107, 114, 128)
-  if (doc.clientAddress) pdf.text(doc.clientAddress, M + 8, blockY + 37)
+  addrLines.forEach((line: string, i: number) => pdf.text(line, M + 8, blockY + 36 + i * 11))
 
   // Amount Due (right) — the number clients look at first
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
@@ -87,7 +92,7 @@ function generateFinancialPDF(doc: any): string {
     pdf.text(`due ${doc.dateDue}`, W - M, blockY + 42, { align: 'right' })
   }
 
-  y = blockY + 58
+  y = blockY + blockH + 16
 
   // Line items table
   const items = doc.lineItems || []
@@ -107,15 +112,19 @@ function generateFinancialPDF(doc: any): string {
   y += 7; pdf.setDrawColor(37, 99, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 5
 
   items.forEach((li: any) => {
-    checkPage(20); y += 14
+    const descLines: string[] = pdf.splitTextToSize(li.description || '—', colQty - colDesc - 10)
+    const extraLines = descLines.length - 1
+    checkPage(20 + extraLines * 12)
+    y += 14
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(31, 41, 55)
-    pdf.text((li.description || '—').substring(0, 52), colDesc, y)
+    descLines.forEach((line: string, i: number) => pdf.text(line, colDesc, y + i * 12))
     pdf.setTextColor(75, 85, 99)
     pdf.text(String(li.quantity || 0), colQty, y)
     pdf.text(li.unit || 'ea', colUnit, y)
     pdf.text(fmt(li.price || li.unitPrice || 0), colPrice, y)
     pdf.setFont('helvetica', 'bold'); pdf.setTextColor(17, 24, 39)
     pdf.text(fmt((li.quantity || 0) * (li.price || li.unitPrice || 0)), colAmt, y, { align: 'right' })
+    y += extraLines * 12
     pdf.setDrawColor(243, 244, 246); pdf.setLineWidth(0.3); pdf.line(M, y + 6, W - M, y + 6)
     y += 6
   })
