@@ -221,9 +221,9 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
 
   const toggleTermPreset = (preset: { text: string }) => {
     if (terms.includes(preset.text)) {
-      setTerms(t => t.replace(preset.text, '').replace(/\n{3,}/g, '\n\n').trim())
+      setTerms((t: string) => t.replace(preset.text, '').replace(/\n{3,}/g, '\n\n').trim())
     } else {
-      setTerms(t => t ? `${t.trim()}\n${preset.text}` : preset.text)
+      setTerms((t: string) => t ? `${t.trim()}\n${preset.text}` : preset.text)
     }
   }
 
