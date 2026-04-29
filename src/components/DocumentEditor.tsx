@@ -2,6 +2,8 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { X, Plus, Trash2, Save, Download, Eye, Copy } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface LineItem {
   id: string; description: string; quantity: number; unit: string
@@ -57,6 +59,8 @@ function AutoTextarea({ label, value, onChange, className = '', ...props }: {
 }
 
 export default function DocumentEditor({ document, type, lineItemTemplates = [], projects = [], onSave, onClose, onExportPDF }: DocumentEditorProps) {
+  const { user } = useAuth()
+
   // Draft persistence — only for new documents (no existing id)
   const DRAFT_KEY = !document?.id ? `projex_draft_doc_${type}` : null
 
@@ -98,6 +102,33 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
       ...li, cost: li.cost ?? li.unitPrice ?? 0, markup: li.markup ?? 0, price: li.price ?? li.unitPrice ?? 0,
     })) || [{ id: '1', description: '', quantity: 1, unit: 'ea', cost: 0, markup: 20, price: 0 }]
   )
+
+  // Accent color from branding settings
+  const [accentColor, setAccentColor] = useState('#2563eb')
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('projex_brand_color') : null
+    if (stored) setAccentColor(stored)
+  }, [])
+
+  // Prefill company info from org settings (new docs only)
+  useEffect(() => {
+    if (document?.id || !user?.id) return
+    const existingDraft = readDraft()
+    if (existingDraft?.companyName && existingDraft.companyName !== 'Your Company') return;
+    (async () => {
+      try {
+        const sb = createBrowserClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+        const { data: profile } = await sb.from('profiles').select('org_id').eq('id', user.id).single()
+        if (!profile?.org_id) return
+        const { data: org } = await sb.from('organizations').select('name, address, phone, email').eq('id', profile.org_id).single()
+        if (!org) return
+        if (org.name) setCompanyName(org.name)
+        if (org.address) setCompanyAddress(org.address)
+        if (org.phone) setCompanyPhone(org.phone)
+        if (org.email) setCompanyEmail(org.email)
+      } catch {}
+    })()
+  }, [user?.id])
 
   // Auto-save all fields to draft (new docs only)
   useEffect(() => {
@@ -431,49 +462,63 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
           {/* RIGHT: Preview */}
           {showPreview && (
             <div className="h-[50%] sm:h-full sm:w-[45%] bg-gray-200 dark:bg-[#0d0d0d] overflow-y-auto flex items-start justify-center p-4">
-              <div className="bg-white w-full max-w-[612px] min-h-[792px] shadow-xl overflow-hidden" style={{ fontFamily: 'system-ui' }}>
-                <div className="h-[5px] bg-blue-600" />
+              <div className="bg-white w-full max-w-[612px] min-h-[792px] shadow-xl overflow-hidden" style={{ fontFamily: 'Georgia, serif' }}>
+                {/* Accent bar */}
+                <div className="h-[5px]" style={{ backgroundColor: accentColor }} />
 
                 {/* Header */}
                 <div className="px-10 pt-8 pb-6 flex justify-between items-start border-b border-gray-100">
                   <div>
-                    <div className="text-[15px] font-black text-gray-900 tracking-tight">{companyName || 'Your Company'}</div>
-                    {companyAddress && <div className="text-[10px] text-gray-400 mt-1 whitespace-pre-line leading-relaxed">{companyAddress}</div>}
-                    <div className="text-[10px] text-gray-400 mt-0.5">
+                    <div className="text-[15px] font-bold text-gray-900 tracking-tight" style={{ fontFamily: 'system-ui' }}>{companyName || 'Your Company'}</div>
+                    {companyAddress && <div className="text-[9.5px] text-gray-400 mt-1 whitespace-pre-line leading-relaxed" style={{ fontFamily: 'system-ui' }}>{companyAddress}</div>}
+                    <div className="text-[9.5px] text-gray-400 mt-0.5" style={{ fontFamily: 'system-ui' }}>
                       {companyPhone && <span>{companyPhone}</span>}
                       {companyPhone && companyEmail && <span className="mx-1.5 text-gray-300">·</span>}
                       {companyEmail && <span>{companyEmail}</span>}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[22px] font-black text-gray-900 uppercase tracking-tight leading-none">{TYPE_LABELS[type]}</div>
-                    <div className="mt-2 space-y-0.5 text-[10px]">
+                    <div className="text-[22px] font-black text-gray-900 uppercase tracking-tight leading-none" style={{ fontFamily: 'system-ui' }}>{TYPE_LABELS[type]}</div>
+                    <div className="mt-2 space-y-0.5 text-[9.5px]" style={{ fontFamily: 'system-ui' }}>
                       <div className="font-mono text-gray-400">#{docNumber}</div>
-                      <div className="text-gray-400">Date: {dateIssued}</div>
-                      {dateDue && <div className="font-semibold text-orange-500">Due: {dateDue}</div>}
+                      <div className="text-gray-400">Issued {dateIssued}</div>
+                      {dateDue && <div className="font-semibold text-orange-500">Due {dateDue}</div>}
                     </div>
                   </div>
                 </div>
 
-                {/* Prepared For */}
-                <div className="px-10 py-5 bg-gray-50 border-b border-gray-100">
-                  <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400 mb-2">{type === 'invoice' ? 'Bill To' : 'Prepared For'}</div>
-                  <div className="text-[13px] font-bold text-gray-900">{clientName || '—'}</div>
-                  {clientAddress && <div className="text-[10px] text-gray-500 whitespace-pre-line mt-0.5 leading-relaxed">{clientAddress}</div>}
-                  {clientEmail && <div className="text-[10px] text-gray-500">{clientEmail}</div>}
-                  {clientPhone && <div className="text-[10px] text-gray-500">{clientPhone}</div>}
+                {/* Client + Amount Due */}
+                <div className="px-10 py-5 border-b border-gray-100 flex justify-between items-start">
+                  <div className="flex gap-3">
+                    <div className="w-[3px] self-stretch rounded-sm" style={{ backgroundColor: accentColor }} />
+                    <div>
+                      <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5" style={{ fontFamily: 'system-ui' }}>{type === 'invoice' ? 'Bill To' : 'Prepared For'}</div>
+                      <div className="text-[12px] font-bold text-gray-900" style={{ fontFamily: 'system-ui' }}>{clientName || '—'}</div>
+                      {clientAddress && <div className="text-[9.5px] text-gray-500 whitespace-pre-line mt-0.5 leading-relaxed" style={{ fontFamily: 'system-ui' }}>{clientAddress}</div>}
+                      {(clientEmail || clientPhone) && (
+                        <div className="text-[9.5px] text-gray-400 mt-0.5" style={{ fontFamily: 'system-ui' }}>
+                          {clientPhone}{clientPhone && clientEmail && ' · '}{clientEmail}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0 ml-4">
+                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5" style={{ fontFamily: 'system-ui' }}>Amount Due</div>
+                    <div className="text-[22px] font-black tabular-nums leading-none" style={{ color: accentColor, fontFamily: 'system-ui' }}>{fmt(total)}</div>
+                    {dateDue && <div className="text-[9px] text-gray-400 mt-1" style={{ fontFamily: 'system-ui' }}>due {dateDue}</div>}
+                  </div>
                 </div>
 
                 {/* Line items */}
                 <div className="px-10 pt-6">
-                  <table className="w-full text-[10px]">
+                  <table className="w-full text-[9.5px]" style={{ fontFamily: 'system-ui' }}>
                     <thead>
-                      <tr className="border-b-2 border-gray-900">
-                        <th className="text-left pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400">Description</th>
-                        <th className="text-right pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400 w-10">Qty</th>
-                        <th className="text-right pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400 w-10">Unit</th>
-                        <th className="text-right pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400 w-16">Price</th>
-                        <th className="text-right pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400 w-16">Amount</th>
+                      <tr style={{ borderBottom: '2px solid #111827' }}>
+                        <th className="text-left pb-2 font-bold text-[7.5px] uppercase tracking-widest text-gray-400">Description</th>
+                        <th className="text-right pb-2 font-bold text-[7.5px] uppercase tracking-widest text-gray-400 w-10">Qty</th>
+                        <th className="text-right pb-2 font-bold text-[7.5px] uppercase tracking-widest text-gray-400 w-10">Unit</th>
+                        <th className="text-right pb-2 font-bold text-[7.5px] uppercase tracking-widest text-gray-400 w-16">Price</th>
+                        <th className="text-right pb-2 font-bold text-[7.5px] uppercase tracking-widest text-gray-400 w-16">Amount</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -482,10 +527,10 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                             const rows = []
                             if (group.title) rows.push(
                               <tr key={`sh-${gi}`}>
-                                <td colSpan={5} className="pt-4 pb-1.5">
-                                  <div className="flex items-center gap-1.5">
-                                    <div className="w-[5px] h-[5px] rounded-sm bg-blue-600 flex-shrink-0" />
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-blue-700">{group.title}</span>
+                                <td colSpan={5} className="pt-4 pb-1">
+                                  <div className="flex items-center gap-1.5 rounded px-2 py-1" style={{ backgroundColor: `${accentColor}14` }}>
+                                    <div className="w-[5px] h-[5px] rounded-sm flex-shrink-0" style={{ backgroundColor: accentColor }} />
+                                    <span className="text-[7.5px] font-black uppercase tracking-widest" style={{ color: accentColor }}>{group.title}</span>
                                   </div>
                                 </td>
                               </tr>
@@ -501,8 +546,8 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                             ))
                             if (group.title && group.items.length > 0) rows.push(
                               <tr key={`ss-${gi}`}>
-                                <td colSpan={4} className="pt-1.5 pb-3 pr-2 text-right text-[8px] font-bold uppercase tracking-wider text-gray-400">{group.title} subtotal</td>
-                                <td className="pt-1.5 pb-3 text-right font-bold tabular-nums text-gray-600 border-t border-gray-200">{fmt(group.subtotal)}</td>
+                                <td colSpan={4} className="pt-1 pb-3 pr-2 text-right text-[7.5px] font-bold uppercase tracking-wider text-gray-400">{group.title} subtotal</td>
+                                <td className="pt-1 pb-3 text-right font-bold tabular-nums text-gray-600 border-t border-gray-200">{fmt(group.subtotal)}</td>
                               </tr>
                             )
                             return rows
@@ -524,12 +569,12 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                 {/* Totals */}
                 <div className="px-10 py-6">
                   <div className="flex justify-end">
-                    <div className="w-56 text-[10px] space-y-1">
+                    <div className="w-56 space-y-1" style={{ fontFamily: 'system-ui', fontSize: '9.5px' }}>
                       <div className="flex justify-between text-gray-500"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
                       {taxRate > 0 && <div className="flex justify-between text-gray-500"><span>Tax ({taxRate}%)</span><span className="tabular-nums">{fmt(taxAmount)}</span></div>}
-                      <div className="flex justify-between items-baseline pt-3 mt-2 border-t-2 border-gray-900">
-                        <span className="text-[11px] font-black uppercase tracking-wider text-gray-900">Total</span>
-                        <span className="text-[20px] font-black tabular-nums text-gray-900 leading-none">{fmt(total)}</span>
+                      <div className="flex justify-between items-baseline pt-3 mt-2 border-t-[1.5px]" style={{ borderColor: accentColor }}>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-900">Total</span>
+                        <span className="text-[20px] font-black tabular-nums leading-none" style={{ color: accentColor }}>{fmt(total)}</span>
                       </div>
                     </div>
                   </div>
@@ -537,17 +582,17 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
 
                 {/* Terms / Notes */}
                 {(terms || notes) && (
-                  <div className={`px-10 pb-10 border-t border-gray-100 pt-5 ${terms && notes ? 'grid grid-cols-2 gap-6' : ''}`}>
+                  <div className={`px-10 pb-10 border-t border-gray-100 pt-5 ${terms && notes ? 'grid grid-cols-2 gap-6' : ''}`} style={{ fontFamily: 'system-ui' }}>
                     {terms && (
                       <div>
-                        <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Terms</div>
-                        <div className="text-[10px] text-gray-500 whitespace-pre-wrap leading-relaxed">{terms}</div>
+                        <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Terms</div>
+                        <div className="text-[9.5px] text-gray-500 whitespace-pre-wrap leading-relaxed">{terms}</div>
                       </div>
                     )}
                     {notes && (
                       <div>
-                        <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Notes</div>
-                        <div className="text-[10px] text-gray-500 whitespace-pre-wrap leading-relaxed">{notes}</div>
+                        <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Notes</div>
+                        <div className="text-[9.5px] text-gray-500 whitespace-pre-wrap leading-relaxed">{notes}</div>
                       </div>
                     )}
                   </div>

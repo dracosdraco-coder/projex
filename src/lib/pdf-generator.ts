@@ -10,6 +10,12 @@ import jsPDF from 'jspdf'
 
 const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0)
 
+function getBrandRgb(): [number, number, number] {
+  const hex = (typeof window !== 'undefined' ? localStorage.getItem('projex_brand_color') : null) || '#2563eb'
+  const clean = hex.replace('#', '')
+  return [parseInt(clean.slice(0, 2), 16), parseInt(clean.slice(2, 4), 16), parseInt(clean.slice(4, 6), 16)]
+}
+
 const TYPE_LABELS: Record<string, string> = {
   estimate: 'ESTIMATE', invoice: 'INVOICE', work_order: 'WORK ORDER',
   change_order: 'CHANGE ORDER', purchase_order: 'PURCHASE ORDER',
@@ -38,8 +44,10 @@ function generateFinancialPDF(doc: any): string {
 
   const checkPage = (need: number) => { if (y + need > H - M) { pdf.addPage(); y = M } }
 
-  // Blue top accent bar
-  pdf.setFillColor(37, 99, 235); pdf.rect(0, 0, W, 5, 'F')
+  const [aR, aG, aB] = getBrandRgb()
+
+  // Accent top bar
+  pdf.setFillColor(aR, aG, aB); pdf.rect(0, 0, W, 5, 'F')
   y = M + 8
 
   // Company header (left)
@@ -74,7 +82,7 @@ function generateFinancialPDF(doc: any): string {
     : []
   const blockH = Math.max(42, 30 + addrLines.length * 11)
 
-  pdf.setFillColor(37, 99, 235); pdf.rect(M, blockY, 3, blockH, 'F')
+  pdf.setFillColor(aR, aG, aB); pdf.rect(M, blockY, 3, blockH, 'F')
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
   pdf.text(doc.type === 'invoice' ? 'BILL TO' : 'PREPARED FOR', M + 8, blockY + 11)
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(17, 24, 39)
@@ -85,7 +93,7 @@ function generateFinancialPDF(doc: any): string {
   // Amount Due (right) — the number clients look at first
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
   pdf.text('AMOUNT DUE', W - M, blockY + 11, { align: 'right' })
-  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(20); pdf.setTextColor(37, 99, 235)
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(20); pdf.setTextColor(aR, aG, aB)
   pdf.text(fmt(doc.total || 0), W - M, blockY + 30, { align: 'right' })
   if (doc.dateDue) {
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(156, 163, 175)
@@ -148,9 +156,9 @@ function generateFinancialPDF(doc: any): string {
     if (group.title) {
       checkPage(22)
       y += 6
-      pdf.setFillColor(239, 246, 255); pdf.rect(M, y, W - M * 2, 17, 'F')
-      pdf.setFillColor(37, 99, 235); pdf.rect(M + 6, y + 6, 5, 5, 'F')
-      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(37, 99, 235)
+      pdf.setFillColor(Math.round(aR * 0.08 + 247), Math.round(aG * 0.08 + 247), Math.round(aB * 0.08 + 247)); pdf.rect(M, y, W - M * 2, 17, 'F')
+      pdf.setFillColor(aR, aG, aB); pdf.rect(M + 6, y + 6, 5, 5, 'F')
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(aR, aG, aB)
       pdf.text(group.title.toUpperCase(), M + 16, y + 11.5)
       y += 17 + 3
     }
@@ -175,10 +183,10 @@ function generateFinancialPDF(doc: any): string {
   if ((doc.taxRate || 0) > 0 || (doc.taxTotal || 0) > 0) {
     pdf.text(`Tax (${doc.taxRate || 0}%)`, tx, y); pdf.text(fmt(doc.taxTotal || 0), colAmt, y, { align: 'right' }); y += 13
   }
-  pdf.setDrawColor(37, 99, 235); pdf.setLineWidth(1.5); pdf.line(tx, y, colAmt, y); y += 14
+  pdf.setDrawColor(aR, aG, aB); pdf.setLineWidth(1.5); pdf.line(tx, y, colAmt, y); y += 14
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(17, 24, 39)
   pdf.text('Total', tx, y)
-  pdf.setTextColor(37, 99, 235)
+  pdf.setTextColor(aR, aG, aB)
   pdf.text(fmt(doc.total || 0), colAmt, y, { align: 'right' }); y += 28
 
   // Terms / Notes — side by side, fine print weight

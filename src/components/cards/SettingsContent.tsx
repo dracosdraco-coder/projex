@@ -191,6 +191,17 @@ export default function SettingsContent() {
   const [orgEmail, setOrgEmail] = useState('')
   const [orgWebsite, setOrgWebsite] = useState('')
   const [orgSaveStatus, setOrgSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+
+  // Brand color — persisted in localStorage, read by DocumentEditor + PDF generator
+  const [brandColor, setBrandColor] = useState('#2563eb')
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('projex_brand_color') : null
+    if (stored) setBrandColor(stored)
+  }, [])
+  const handleBrandColor = (color: string) => {
+    setBrandColor(color)
+    if (typeof window !== 'undefined') localStorage.setItem('projex_brand_color', color)
+  }
   const [copiedReferral, setCopiedReferral] = useState(false)
   const referralLink = typeof window !== 'undefined' ? `${window.location.origin}/login?ref=${user?.id?.slice(0, 8)}` : ''
   const [referralStats, setReferralStats] = useState({ sent: 0, joined: 0, converted: 0 })
@@ -417,6 +428,35 @@ export default function SettingsContent() {
                 }`}>
                   {orgSaveStatus === 'saving' ? 'Saving...' : orgSaveStatus === 'saved' ? 'Saved ✓' : orgSaveStatus === 'error' ? 'Error — retry' : 'Save Organization'}
                 </button>
+              </div>
+
+              {/* Document Branding */}
+              <div className="pt-4 border-t border-gray-100 dark:border-[#222]">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Document Branding</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">Choose an accent color applied to your document headers, section highlights, and PDF exports.</p>
+                <label className="block text-[11px] font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">Accent Color</label>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  {['#2563eb', '#7c3aed', '#dc2626', '#16a34a', '#d97706', '#0891b2', '#be185d', '#374151'].map(c => (
+                    <button key={c} onClick={() => handleBrandColor(c)} title={c}
+                      className={`w-7 h-7 rounded-full border-2 transition-all ${brandColor === c ? 'scale-110' : 'border-transparent hover:scale-105'}`}
+                      style={{ backgroundColor: c, borderColor: brandColor === c ? '#111' : 'transparent' }} />
+                  ))}
+                  <label className="relative w-7 h-7 rounded-full overflow-hidden cursor-pointer border border-gray-200 dark:border-[#333] hover:scale-105 transition-all" title="Custom color">
+                    <div className="absolute inset-0 rounded-full" style={{ background: 'conic-gradient(red, yellow, lime, cyan, blue, magenta, red)' }} />
+                    <input type="color" value={brandColor} onChange={e => handleBrandColor(e.target.value)} className="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
+                  </label>
+                </div>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#2a2a2a]">
+                  <div className="w-4 h-full min-h-[40px] rounded-sm" style={{ backgroundColor: brandColor }} />
+                  <div>
+                    <p className="text-xs font-medium text-gray-900 dark:text-gray-100">Preview</p>
+                    <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400">{brandColor}</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: brandColor }}>ESTIMATE</p>
+                    <p className="text-[15px] font-black tabular-nums" style={{ color: brandColor }}>$4,200.00</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
