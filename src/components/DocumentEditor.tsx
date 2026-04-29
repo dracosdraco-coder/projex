@@ -6,6 +6,7 @@ import { X, Plus, Trash2, Save, Download, Eye, Copy } from 'lucide-react'
 interface LineItem {
   id: string; description: string; quantity: number; unit: string
   cost: number; markup: number; price: number; photo?: string
+  type?: 'item' | 'section'
 }
 
 interface DocumentEditorProps {
@@ -124,6 +125,7 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   }
 
   const addLineItem = () => setLineItems(prev => [...prev, { id: String(Date.now()), description: '', quantity: 1, unit: 'ea', cost: 0, markup: 20, price: 0 }])
+  const addSection = () => setLineItems(prev => [...prev, { id: String(Date.now()), type: 'section' as const, description: 'Materials', quantity: 0, unit: 'ea', cost: 0, markup: 0, price: 0 }])
   const removeLineItem = (id: string) => { if (lineItems.length > 1) setLineItems(prev => prev.filter(li => li.id !== id)) }
 
   const applyTemplate = (t: any) => {
@@ -136,13 +138,30 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
     setShowTemplates(false)
   }
 
-  const totalCost = useMemo(() => lineItems.reduce((s, li) => s + li.quantity * li.cost, 0), [lineItems])
-  const subtotal = useMemo(() => lineItems.reduce((s, li) => s + li.quantity * li.price, 0), [lineItems])
+  const totalCost = useMemo(() => lineItems.filter(li => li.type !== 'section').reduce((s, li) => s + li.quantity * li.cost, 0), [lineItems])
+  const subtotal = useMemo(() => lineItems.filter(li => li.type !== 'section').reduce((s, li) => s + li.quantity * li.price, 0), [lineItems])
   const totalProfit = subtotal - totalCost
   const overallMargin = subtotal > 0 ? (totalProfit / subtotal) * 100 : 0
   const overallMarkup = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0
   const taxAmount = subtotal * (taxRate / 100)
   const total = subtotal + taxAmount
+
+  const groupedItems = useMemo(() => {
+    const groups: Array<{ title: string; items: LineItem[]; subtotal: number }> = []
+    let cur: { title: string; items: LineItem[]; subtotal: number } | null = null
+    for (const li of lineItems) {
+      if (li.type === 'section') {
+        cur = { title: li.description, items: [], subtotal: 0 }
+        groups.push(cur)
+      } else {
+        if (!cur) { cur = { title: '', items: [], subtotal: 0 }; groups.push(cur) }
+        cur.items.push(li)
+        cur.subtotal += li.quantity * li.price
+      }
+    }
+    return groups
+  }, [lineItems])
+  const hasSections = lineItems.some(li => li.type === 'section')
 
   const buildSaveData = () => ({
     id: document?.id, type, documentNumber: docNumber, projectId: projectId || undefined,
@@ -284,7 +303,8 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                             )}
                           </div>
                         )}
-                        <button onClick={addLineItem} className="px-2 py-0.5 text-[10px] text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded flex items-center gap-0.5"><Plus className="w-3 h-3" /> Add</button>
+                        <button onClick={addSection} className="px-2 py-0.5 text-[10px] text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded flex items-center gap-0.5"><Plus className="w-3 h-3" /> Section</button>
+                        <button onClick={addLineItem} className="px-2 py-0.5 text-[10px] text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded flex items-center gap-0.5"><Plus className="w-3 h-3" /> Item</button>
                       </div>
                     </div>
 
@@ -295,32 +315,55 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                     </div>
 
                     <div className="space-y-1">
-                      {lineItems.map(li => (
-                        <div key={li.id} className="space-y-1 group">
-                          <div className="grid grid-cols-[1fr_50px_55px_70px_50px_70px_70px_44px] gap-1 items-center">
-                            <input value={li.description} onChange={e => updateLineItem(li.id, 'description', e.target.value)} placeholder="Item" className="px-1.5 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                            <input type="number" value={li.quantity} onChange={e => updateLineItem(li.id, 'quantity', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                            <select value={li.unit} onChange={e => updateLineItem(li.id, 'unit', e.target.value)} className="px-0.5 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-[10px] focus:outline-none">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
-                            <input type="number" value={li.cost} onChange={e => updateLineItem(li.id, 'cost', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                            <input type="number" value={Math.round(li.markup)} onChange={e => updateLineItem(li.id, 'markup', Number(e.target.value))} className="px-1 py-1 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-amber-500" />
-                            <input type="number" value={Number(li.price.toFixed(2))} onChange={e => updateLineItem(li.id, 'price', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                            <span className="text-xs font-medium text-gray-900 dark:text-gray-100 text-right tabular-nums pr-0.5">{fmt(li.quantity * li.price)}</span>
-                            <span className="flex items-center gap-0.5">
-                              {li.photo ? (
-                                <button onClick={() => setExpandedPhoto(li.photo!)} className="relative flex-shrink-0">
-                                  <img src={li.photo} alt="" className="w-7 h-7 rounded object-cover border border-gray-200" />
-                                  <span onClick={e => { e.stopPropagation(); updateLineItem(li.id, 'photo', '') }} className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[7px] flex items-center justify-center leading-none cursor-pointer">✕</span>
-                                </button>
-                              ) : (
-                                <label className="p-0.5 text-gray-300 hover:text-blue-500 cursor-pointer opacity-0 group-hover:opacity-100 text-[10px]">
-                                  📷<input type="file" accept="image/*" className="hidden" onChange={e => handleLineItemPhoto(li.id, e)} />
-                                </label>
-                              )}
-                              <button onClick={() => removeLineItem(li.id)} className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>
-                            </span>
+                      {lineItems.map(li => {
+                        if (li.type === 'section') {
+                          return (
+                            <div key={li.id} className="flex items-center gap-2 pt-2.5 pb-0.5 group -mx-0.5 px-0.5">
+                              <div className="w-1.5 h-1.5 rounded-sm bg-blue-600 flex-shrink-0" />
+                              <input
+                                value={li.description}
+                                onChange={e => updateLineItem(li.id, 'description', e.target.value)}
+                                placeholder="Section name…"
+                                className="flex-1 bg-transparent border-none text-[10px] font-bold uppercase tracking-widest text-blue-700 dark:text-blue-400 focus:outline-none p-0 placeholder-blue-300"
+                              />
+                              <button onClick={() => removeLineItem(li.id)} className="opacity-0 group-hover:opacity-100 p-0.5 text-gray-300 hover:text-red-500 flex-shrink-0"><Trash2 className="w-3 h-3" /></button>
+                            </div>
+                          )
+                        }
+                        return (
+                          <div key={li.id} className="group">
+                            <div className="grid grid-cols-[1fr_50px_55px_70px_50px_70px_70px_44px] gap-1 items-start">
+                              <textarea
+                                value={li.description}
+                                onChange={e => updateLineItem(li.id, 'description', e.target.value)}
+                                onInput={e => { const t = e.currentTarget; t.style.height = 'auto'; t.style.height = t.scrollHeight + 'px' }}
+                                placeholder="Item description"
+                                rows={1}
+                                className="px-1.5 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none overflow-hidden leading-snug"
+                              />
+                              <input type="number" value={li.quantity} onChange={e => updateLineItem(li.id, 'quantity', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                              <select value={li.unit} onChange={e => updateLineItem(li.id, 'unit', e.target.value)} className="px-0.5 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-[10px] focus:outline-none">{UNITS.map(u => <option key={u} value={u}>{u}</option>)}</select>
+                              <input type="number" value={li.cost} onChange={e => updateLineItem(li.id, 'cost', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                              <input type="number" value={Math.round(li.markup)} onChange={e => updateLineItem(li.id, 'markup', Number(e.target.value))} className="px-1 py-1 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/30 rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                              <input type="number" value={Number(li.price.toFixed(2))} onChange={e => updateLineItem(li.id, 'price', Number(e.target.value))} className="px-1 py-1 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded text-xs text-right focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                              <span className="text-xs font-medium text-gray-900 dark:text-gray-100 text-right tabular-nums pr-0.5 pt-1">{fmt(li.quantity * li.price)}</span>
+                              <span className="flex items-center gap-0.5 pt-0.5">
+                                {li.photo ? (
+                                  <button onClick={() => setExpandedPhoto(li.photo!)} className="relative flex-shrink-0">
+                                    <img src={li.photo} alt="" className="w-7 h-7 rounded object-cover border border-gray-200" />
+                                    <span onClick={e => { e.stopPropagation(); updateLineItem(li.id, 'photo', '') }} className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[7px] flex items-center justify-center leading-none cursor-pointer">✕</span>
+                                  </button>
+                                ) : (
+                                  <label className="p-0.5 text-gray-300 hover:text-blue-500 cursor-pointer opacity-0 group-hover:opacity-100 text-[10px]">
+                                    📷<input type="file" accept="image/*" className="hidden" onChange={e => handleLineItemPhoto(li.id, e)} />
+                                  </label>
+                                )}
+                                <button onClick={() => removeLineItem(li.id)} className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                     </div>
                     </div>
@@ -387,98 +430,128 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
 
           {/* RIGHT: Preview */}
           {showPreview && (
-            <div className="h-[50%] sm:h-full sm:w-[45%] bg-gray-100 dark:bg-[#111] overflow-y-auto flex items-start justify-center p-4">
-              <div className="bg-white shadow-lg w-full max-w-[612px] min-h-[792px] overflow-hidden" style={{ fontFamily: 'system-ui' }}>
-                {/* Brand accent bar */}
+            <div className="h-[50%] sm:h-full sm:w-[45%] bg-gray-200 dark:bg-[#0d0d0d] overflow-y-auto flex items-start justify-center p-4">
+              <div className="bg-white w-full max-w-[612px] min-h-[792px] shadow-xl overflow-hidden" style={{ fontFamily: 'system-ui' }}>
                 <div className="h-[5px] bg-blue-600" />
-                <div className="px-9 py-8 text-gray-900 text-[11px] leading-relaxed">
-                  {/* Header */}
-                  <div className="flex justify-between items-start pb-5 mb-6 border-b border-gray-100">
-                    <div>
-                      <div className="text-sm font-bold text-gray-900 tracking-tight">{companyName || 'Your Company'}</div>
-                      {companyAddress && <div className="text-gray-400 mt-0.5">{companyAddress}</div>}
-                      {companyPhone && <div className="text-gray-400">{companyPhone}</div>}
-                      {companyEmail && <div className="text-gray-400">{companyEmail}</div>}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-gray-900 uppercase tracking-widest">{TYPE_LABELS[type]}</div>
-                      <div className="mt-1 space-y-0.5 text-gray-400">
-                        <div className="font-mono text-[10px] text-gray-500">#{docNumber}</div>
-                        <div>Issued {dateIssued}</div>
-                        {dateDue && <div className="text-orange-500 font-medium">Due {dateDue}</div>}
-                      </div>
+
+                {/* Header */}
+                <div className="px-10 pt-8 pb-6 flex justify-between items-start border-b border-gray-100">
+                  <div>
+                    <div className="text-[15px] font-black text-gray-900 tracking-tight">{companyName || 'Your Company'}</div>
+                    {companyAddress && <div className="text-[10px] text-gray-400 mt-1 whitespace-pre-line leading-relaxed">{companyAddress}</div>}
+                    <div className="text-[10px] text-gray-400 mt-0.5">
+                      {companyPhone && <span>{companyPhone}</span>}
+                      {companyPhone && companyEmail && <span className="mx-1.5 text-gray-300">·</span>}
+                      {companyEmail && <span>{companyEmail}</span>}
                     </div>
                   </div>
-
-                  {/* Bill To + Amount Due */}
-                  <div className="flex justify-between items-start mb-8">
-                    <div className="pl-3 border-l-4 border-blue-600">
-                      <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Bill To</div>
-                      <div className="font-semibold text-xs text-gray-900">{clientName || '—'}</div>
-                      {clientAddress && <div className="text-gray-500 mt-0.5">{clientAddress}</div>}
-                      {clientEmail && <div className="text-gray-500">{clientEmail}</div>}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Amount Due</div>
-                      <div className="text-2xl font-bold text-blue-600 tabular-nums">{fmt(total)}</div>
-                      {dateDue && <div className="text-[10px] text-gray-400 mt-0.5">due {dateDue}</div>}
+                  <div className="text-right">
+                    <div className="text-[22px] font-black text-gray-900 uppercase tracking-tight leading-none">{TYPE_LABELS[type]}</div>
+                    <div className="mt-2 space-y-0.5 text-[10px]">
+                      <div className="font-mono text-gray-400">#{docNumber}</div>
+                      <div className="text-gray-400">Date: {dateIssued}</div>
+                      {dateDue && <div className="font-semibold text-orange-500">Due: {dateDue}</div>}
                     </div>
                   </div>
+                </div>
 
-                  {/* Line items */}
-                  <table className="w-full mb-5">
+                {/* Prepared For */}
+                <div className="px-10 py-5 bg-gray-50 border-b border-gray-100">
+                  <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400 mb-2">{type === 'invoice' ? 'Bill To' : 'Prepared For'}</div>
+                  <div className="text-[13px] font-bold text-gray-900">{clientName || '—'}</div>
+                  {clientAddress && <div className="text-[10px] text-gray-500 whitespace-pre-line mt-0.5 leading-relaxed">{clientAddress}</div>}
+                  {clientEmail && <div className="text-[10px] text-gray-500">{clientEmail}</div>}
+                  {clientPhone && <div className="text-[10px] text-gray-500">{clientPhone}</div>}
+                </div>
+
+                {/* Line items */}
+                <div className="px-10 pt-6">
+                  <table className="w-full text-[10px]">
                     <thead>
-                      <tr style={{ borderBottom: '2px solid #2563eb' }}>
-                        <th className="text-left pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500">Description</th>
-                        <th className="text-right pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500 w-12">Qty</th>
-                        <th className="text-right pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500 w-12">Unit</th>
-                        <th className="text-right pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500 w-16">Price</th>
-                        <th className="text-right pb-2 font-semibold text-[9px] uppercase tracking-wider text-gray-500 w-16">Amount</th>
+                      <tr className="border-b-2 border-gray-900">
+                        <th className="text-left pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400">Description</th>
+                        <th className="text-right pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400 w-10">Qty</th>
+                        <th className="text-right pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400 w-10">Unit</th>
+                        <th className="text-right pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400 w-16">Price</th>
+                        <th className="text-right pb-2 font-bold text-[8px] uppercase tracking-widest text-gray-400 w-16">Amount</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {lineItems.map(li => (
-                        <tr key={li.id} className="border-b border-gray-100">
-                          <td className="py-2 text-gray-800">{li.description || '—'}</td>
-                          <td className="text-right py-2 tabular-nums text-gray-500">{li.quantity}</td>
-                          <td className="text-right py-2 text-gray-500">{li.unit}</td>
-                          <td className="text-right py-2 tabular-nums text-gray-500">{fmt(li.price)}</td>
-                          <td className="text-right py-2 font-semibold tabular-nums text-gray-900">{fmt(li.quantity * li.price)}</td>
-                        </tr>
-                      ))}
+                      {hasSections
+                        ? groupedItems.flatMap((group, gi) => {
+                            const rows = []
+                            if (group.title) rows.push(
+                              <tr key={`sh-${gi}`}>
+                                <td colSpan={5} className="pt-4 pb-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <div className="w-[5px] h-[5px] rounded-sm bg-blue-600 flex-shrink-0" />
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-blue-700">{group.title}</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                            group.items.forEach(li => rows.push(
+                              <tr key={li.id} className="border-b border-gray-100">
+                                <td className="py-1.5 text-gray-700 pl-3 whitespace-pre-wrap">{li.description || '—'}</td>
+                                <td className="text-right py-1.5 tabular-nums text-gray-500">{li.quantity}</td>
+                                <td className="text-right py-1.5 text-gray-500">{li.unit}</td>
+                                <td className="text-right py-1.5 tabular-nums text-gray-500">{fmt(li.price)}</td>
+                                <td className="text-right py-1.5 font-semibold tabular-nums text-gray-900">{fmt(li.quantity * li.price)}</td>
+                              </tr>
+                            ))
+                            if (group.title && group.items.length > 0) rows.push(
+                              <tr key={`ss-${gi}`}>
+                                <td colSpan={4} className="pt-1.5 pb-3 pr-2 text-right text-[8px] font-bold uppercase tracking-wider text-gray-400">{group.title} subtotal</td>
+                                <td className="pt-1.5 pb-3 text-right font-bold tabular-nums text-gray-600 border-t border-gray-200">{fmt(group.subtotal)}</td>
+                              </tr>
+                            )
+                            return rows
+                          })
+                        : lineItems.filter(li => li.type !== 'section').map(li => (
+                            <tr key={li.id} className="border-b border-gray-100">
+                              <td className="py-1.5 text-gray-700 whitespace-pre-wrap">{li.description || '—'}</td>
+                              <td className="text-right py-1.5 tabular-nums text-gray-500">{li.quantity}</td>
+                              <td className="text-right py-1.5 text-gray-500">{li.unit}</td>
+                              <td className="text-right py-1.5 tabular-nums text-gray-500">{fmt(li.price)}</td>
+                              <td className="text-right py-1.5 font-semibold tabular-nums text-gray-900">{fmt(li.quantity * li.price)}</td>
+                            </tr>
+                          ))
+                      }
                     </tbody>
                   </table>
+                </div>
 
-                  {/* Totals */}
-                  <div className="flex justify-end mb-8">
-                    <div className="w-48 text-[11px]">
-                      <div className="flex justify-between py-1 text-gray-500"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
-                      {taxRate > 0 && <div className="flex justify-between py-1 text-gray-500"><span>Tax ({taxRate}%)</span><span className="tabular-nums">{fmt(taxAmount)}</span></div>}
-                      <div className="flex justify-between items-center mt-1 pt-2" style={{ borderTop: '2px solid #2563eb' }}>
-                        <span className="font-bold text-sm text-gray-900">Total</span>
-                        <span className="font-bold text-sm tabular-nums text-blue-600">{fmt(total)}</span>
+                {/* Totals */}
+                <div className="px-10 py-6">
+                  <div className="flex justify-end">
+                    <div className="w-56 text-[10px] space-y-1">
+                      <div className="flex justify-between text-gray-500"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
+                      {taxRate > 0 && <div className="flex justify-between text-gray-500"><span>Tax ({taxRate}%)</span><span className="tabular-nums">{fmt(taxAmount)}</span></div>}
+                      <div className="flex justify-between items-baseline pt-3 mt-2 border-t-2 border-gray-900">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-gray-900">Total</span>
+                        <span className="text-[20px] font-black tabular-nums text-gray-900 leading-none">{fmt(total)}</span>
                       </div>
                     </div>
                   </div>
-
-                  {/* Terms / Notes */}
-                  {(terms || notes) && (
-                    <div className={`border-t border-gray-100 pt-5 ${terms && notes ? 'grid grid-cols-2 gap-6' : ''}`}>
-                      {terms && (
-                        <div>
-                          <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Terms</div>
-                          <div className="text-gray-500 whitespace-pre-wrap">{terms}</div>
-                        </div>
-                      )}
-                      {notes && (
-                        <div>
-                          <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1">Notes</div>
-                          <div className="text-gray-500 whitespace-pre-wrap">{notes}</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
+
+                {/* Terms / Notes */}
+                {(terms || notes) && (
+                  <div className={`px-10 pb-10 border-t border-gray-100 pt-5 ${terms && notes ? 'grid grid-cols-2 gap-6' : ''}`}>
+                    {terms && (
+                      <div>
+                        <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Terms</div>
+                        <div className="text-[10px] text-gray-500 whitespace-pre-wrap leading-relaxed">{terms}</div>
+                      </div>
+                    )}
+                    {notes && (
+                      <div>
+                        <div className="text-[8px] font-bold uppercase tracking-widest text-gray-400 mb-1.5">Notes</div>
+                        <div className="text-[10px] text-gray-500 whitespace-pre-wrap leading-relaxed">{notes}</div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}

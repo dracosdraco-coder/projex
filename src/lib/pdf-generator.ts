@@ -76,7 +76,7 @@ function generateFinancialPDF(doc: any): string {
 
   pdf.setFillColor(37, 99, 235); pdf.rect(M, blockY, 3, blockH, 'F')
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
-  pdf.text('BILL TO', M + 8, blockY + 11)
+  pdf.text(doc.type === 'invoice' ? 'BILL TO' : 'PREPARED FOR', M + 8, blockY + 11)
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(10.5); pdf.setTextColor(17, 24, 39)
   pdf.text(doc.clientName || '—', M + 8, blockY + 24)
   pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8.5); pdf.setTextColor(107, 114, 128)
@@ -95,29 +95,44 @@ function generateFinancialPDF(doc: any): string {
   y = blockY + blockH + 16
 
   // Line items table
-  const items = doc.lineItems || []
+  const allItems = doc.lineItems || []
   const colDesc = M
   const colQty = M + 295
   const colUnit = M + 340
   const colPrice = M + 395
   const colAmt = W - M
 
-  pdf.setDrawColor(37, 99, 235); pdf.setLineWidth(1.5); pdf.line(M, y, W - M, y); y += 13
+  pdf.setDrawColor(17, 24, 39); pdf.setLineWidth(1.5); pdf.line(M, y, W - M, y); y += 13
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(107, 114, 128)
   pdf.text('DESCRIPTION', colDesc, y)
   pdf.text('QTY', colQty, y)
   pdf.text('UNIT', colUnit, y)
   pdf.text('PRICE', colPrice, y)
   pdf.text('AMOUNT', colAmt, y, { align: 'right' })
-  y += 7; pdf.setDrawColor(37, 99, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 5
+  y += 7; pdf.setDrawColor(17, 24, 39); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 5
 
-  items.forEach((li: any) => {
-    const descLines: string[] = pdf.splitTextToSize(li.description || '—', colQty - colDesc - 10)
+  // Group items by section
+  const hasSections = allItems.some((li: any) => li.type === 'section')
+  const groups: Array<{ title: string; items: any[]; subtotal: number }> = []
+  let curGroup: { title: string; items: any[]; subtotal: number } | null = null
+  for (const li of allItems) {
+    if (li.type === 'section') {
+      curGroup = { title: li.description || 'Section', items: [], subtotal: 0 }
+      groups.push(curGroup)
+    } else {
+      if (!curGroup) { curGroup = { title: '', items: [], subtotal: 0 }; groups.push(curGroup) }
+      curGroup.items.push(li)
+      curGroup.subtotal += (li.quantity || 0) * (li.price || li.unitPrice || 0)
+    }
+  }
+
+  const renderItem = (li: any, indent = 0) => {
+    const descLines: string[] = pdf.splitTextToSize(li.description || '—', colQty - colDesc - indent - 10)
     const extraLines = descLines.length - 1
     checkPage(20 + extraLines * 12)
     y += 14
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(31, 41, 55)
-    descLines.forEach((line: string, i: number) => pdf.text(line, colDesc, y + i * 12))
+    descLines.forEach((line: string, i: number) => pdf.text(line, colDesc + indent, y + i * 12))
     pdf.setTextColor(75, 85, 99)
     pdf.text(String(li.quantity || 0), colQty, y)
     pdf.text(li.unit || 'ea', colUnit, y)
@@ -127,6 +142,27 @@ function generateFinancialPDF(doc: any): string {
     y += extraLines * 12
     pdf.setDrawColor(243, 244, 246); pdf.setLineWidth(0.3); pdf.line(M, y + 6, W - M, y + 6)
     y += 6
+  }
+
+  groups.forEach(group => {
+    if (group.title) {
+      checkPage(22)
+      y += 6
+      pdf.setFillColor(239, 246, 255); pdf.rect(M, y, W - M * 2, 17, 'F')
+      pdf.setFillColor(37, 99, 235); pdf.rect(M + 6, y + 6, 5, 5, 'F')
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(37, 99, 235)
+      pdf.text(group.title.toUpperCase(), M + 16, y + 11.5)
+      y += 17 + 3
+    }
+    group.items.forEach((li: any) => renderItem(li, group.title ? 6 : 0))
+    if (hasSections && group.title && group.items.length > 0) {
+      y += 4
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
+      pdf.text(`${group.title.toUpperCase()} SUBTOTAL`, colPrice - 4, y, { align: 'right' })
+      pdf.setTextColor(55, 65, 81)
+      pdf.text(fmt(group.subtotal), colAmt, y, { align: 'right' })
+      y += 14
+    }
   })
 
   y += 20
