@@ -573,7 +573,7 @@ interface ProjectFormData {
         return
       }
       
-      generateDocumentPDF(doc)
+      await generateDocumentPDF(doc)
       
       await updateGeneratedDocument(doc.id, { 
         status: doc.status === 'draft' ? 'sent' : doc.status,

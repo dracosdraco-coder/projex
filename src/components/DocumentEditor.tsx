@@ -40,6 +40,24 @@ const TERMS_PRESETS = [
   { id: 'lien',        label: 'Lien Rights',      text: 'Contractor reserves the right to file a mechanics lien if payment is not received per agreed terms.' },
 ]
 
+// Renders an attached PDF page-for-page in an iframe using a blob URL
+// (data: URLs are blocked in iframes by Chrome)
+function PdfPreviewPage({ data, name }: { data: string; name: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null)
+  useEffect(() => {
+    const [header, b64] = data.split(',')
+    const mime = (header.match(/:(.*?);/) || [])[1] || 'application/pdf'
+    const binary = atob(b64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const url = URL.createObjectURL(new Blob([bytes], { type: mime }))
+    setBlobUrl(url)
+    return () => URL.revokeObjectURL(url)
+  }, [data])
+  if (!blobUrl) return <div className="w-full bg-gray-50 flex items-center justify-center" style={{ height: 792 }}><span className="text-xs text-gray-400">Loading…</span></div>
+  return <iframe src={blobUrl} title={name} className="w-full border-0 block" style={{ height: 792 }} />
+}
+
 // IMPORTANT: defined OUTSIDE the component so React doesn't re-mount on every render
 function FormInput({ label, value, onChange, type: t = 'text', className = '' }: {
   label: string; value: string; onChange: (v: string) => void; type?: string; className?: string
@@ -822,35 +840,15 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                   </div>
                 </div>
 
-                {/* Photo attachments */}
-                {attachments.filter(a => a.type === 'photo').length > 0 && (
-                  <div className="px-10 pt-5 pb-8 border-t border-gray-100">
-                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-3">Attached Photos</div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {attachments.filter(a => a.type === 'photo').map(a => (
-                        <div key={a.id} className="aspect-[4/3] rounded overflow-hidden bg-gray-50 cursor-pointer" onClick={() => setExpandedPhoto(a.data)}>
-                          <img src={a.data} alt={a.name} className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
+                {/* Attachment pages — each attachment is a new page below the document */}
+                {attachments.map(a => (
+                  <div key={a.id} className="border-t-4 border-gray-200">
+                    {a.type === 'photo'
+                      ? <img src={a.data} alt={a.name} className="w-full block object-contain bg-black cursor-pointer" onClick={() => setExpandedPhoto(a.data)} />
+                      : <PdfPreviewPage data={a.data} name={a.name} />
+                    }
                   </div>
-                )}
-
-                {/* PDF attachments */}
-                {attachments.filter(a => a.type === 'pdf').length > 0 && (
-                  <div className="px-10 pb-8">
-                    <div className="text-[7.5px] font-bold uppercase tracking-widest text-gray-400 mb-2">Attached Documents</div>
-                    <div className="space-y-1.5">
-                      {attachments.filter(a => a.type === 'pdf').map(a => (
-                        <a key={a.id} href={a.data} download={a.name}
-                          className="flex items-center gap-2 px-2 py-1.5 bg-gray-50 rounded text-[9px] text-gray-600 hover:bg-gray-100">
-                          <Paperclip className="w-3 h-3 text-gray-400 shrink-0" />
-                          <span className="truncate">{a.name}</span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           )}

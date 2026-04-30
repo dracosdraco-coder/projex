@@ -7,6 +7,35 @@
 // ============================================
 
 import jsPDF from 'jspdf'
+import * as pdfjsLib from 'pdfjs-dist'
+
+// Use CDN worker matching installed version — no build config needed
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+}
+
+async function renderPdfToImages(dataUrl: string, pageW: number, pageH: number): Promise<string[]> {
+  const images: string[] = []
+  try {
+    const base64 = dataUrl.split(',')[1]
+    const binary = atob(base64)
+    const array = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i)
+    const pdfDoc = await pdfjsLib.getDocument({ data: array }).promise
+    for (let p = 1; p <= pdfDoc.numPages; p++) {
+      const page = await pdfDoc.getPage(p)
+      const nativeVp = page.getViewport({ scale: 1 })
+      const scale = (pageW / nativeVp.width) * 1.5
+      const vp = page.getViewport({ scale })
+      const canvas = document.createElement('canvas')
+      canvas.width = vp.width; canvas.height = vp.height
+      await page.render({ canvasContext: canvas.getContext('2d')!, viewport: vp }).promise
+      images.push(canvas.toDataURL('image/jpeg', 0.92))
+    }
+  } catch (e) { console.warn('PDF render failed', e) }
+  return images
+}
 
 const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n || 0)
 
@@ -22,7 +51,7 @@ const TYPE_LABELS: Record<string, string> = {
   proposal: 'PROPOSAL', contract: 'CONTRACT', inspection: 'INSPECTION',
 }
 
-export function generateDocumentPDF(doc: any): string {
+export async function generateDocumentPDF(doc: any): Promise<string> {
   if (doc.type === 'inspection') return generateInspectionPDF(doc)
   if (doc.type === 'proposal' || doc.type === 'contract') return generateProposalPDF(doc)
   return generateFinancialPDF(doc)
@@ -35,7 +64,7 @@ export function saveProjectXFormat(_document: any, _outputPath?: string): void {
 
 // ---- Financial documents (estimate, invoice, work order, etc.) ----
 
-function generateFinancialPDF(doc: any): string {
+async function generateFinancialPDF(doc: any): Promise<string> {
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
   const W = pdf.internal.pageSize.getWidth()
   const H = pdf.internal.pageSize.getHeight()
@@ -282,31 +311,20 @@ function generateFinancialPDF(doc: any): string {
   pdf.text(doc.clientName || '—', M, y + 44)
   pdf.text(doc.companyName || '—', sigMid, y + 44)
 
-  // Photo attachments — one full page each
-  const photoAttachments = (doc.attachments || []).filter((a: any) => a.type === 'photo')
-  photoAttachments.forEach((a: any, idx: number) => {
+  // Photo attachments — full-bleed page per photo
+  for (const a of (doc.attachments || []).filter((a: any) => a.type === 'photo')) {
     pdf.addPage()
-    y = M
-    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.5); pdf.setTextColor(156, 163, 175)
-    pdf.text(`PHOTO ${idx + 1} OF ${photoAttachments.length}`, M, y)
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
-    pdf.text(a.name, W / 2, y, { align: 'center' })
-    y += 14
     const imgFormat = (a.mimeType || '').includes('png') ? 'PNG' : 'JPEG'
-    try { pdf.addImage(a.data, imgFormat, M, y, W - M * 2, H - y - M, undefined, 'FAST') } catch { /* skip unsupported */ }
-  })
+    try { pdf.addImage(a.data, imgFormat, 0, 0, W, H, undefined, 'FAST') } catch { /* skip unsupported */ }
+  }
 
-  // PDF attachments — listing page (jsPDF cannot merge PDFs)
-  const pdfAttachments = (doc.attachments || []).filter((a: any) => a.type === 'pdf')
-  if (pdfAttachments.length > 0) {
-    pdf.addPage()
-    y = M
-    pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(17, 24, 39)
-    pdf.text('Attached Documents', M, y); y += 20
-    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(107, 114, 128)
-    pdfAttachments.forEach((a: any) => { pdf.text(`• ${a.name}`, M, y); y += 14 })
-    pdf.setFontSize(8); pdf.setTextColor(156, 163, 175)
-    pdf.text('PDF attachments are included separately.', M, y + 10)
+  // PDF attachments — render each page via pdfjs → canvas → image
+  for (const a of (doc.attachments || []).filter((a: any) => a.type === 'pdf')) {
+    const images = await renderPdfToImages(a.data, W, H)
+    for (const imgData of images) {
+      pdf.addPage()
+      pdf.addImage(imgData, 'JPEG', 0, 0, W, H, undefined, 'FAST')
+    }
   }
 
   const filename = `${doc.documentNumber || doc.type || 'document'}.pdf`
