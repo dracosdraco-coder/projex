@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname
 
   // Public routes that don't require auth
-  const publicRoutes = ['/login', '/signup', '/']
+  const publicRoutes = ['/login', '/signup', '/', '/auth/callback']
 
   // If not authenticated and trying to access protected route, redirect to login
   if (!user && !publicRoutes.includes(path)) {
