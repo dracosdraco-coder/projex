@@ -272,7 +272,7 @@ export default function AccessClient() {
     handleToggleDockItem
   } = useWindowManager(initialCards)
 
-  // Open a specific card from URL param (e.g. ?card=settings from UserProfileDropdown)
+  // Open a specific card from URL param (e.g. ?card=settings on initial load)
   useEffect(() => {
     const cardParam = searchParams.get('card')
     if (cardParam) {
@@ -280,6 +280,16 @@ export default function AccessClient() {
       handleDockClick(cardParam)
     }
   }, [searchParams, handleDockClick])
+
+  // Open a card via custom event (from UserProfileDropdown without page reload)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const card = (e as CustomEvent<string>).detail
+      if (card) handleDockClick(card)
+    }
+    window.addEventListener('projex:open-card', handler)
+    return () => window.removeEventListener('projex:open-card', handler)
+  }, [handleDockClick])
 
   // Infinite canvas
   const {

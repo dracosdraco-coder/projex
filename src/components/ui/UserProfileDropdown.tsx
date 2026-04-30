@@ -141,7 +141,12 @@ export default function UserProfileDropdown() {
             <button
               onClick={() => {
                 setIsOpen(false)
-                window.location.href = '/access?card=settings'
+                // If already on /access, dispatch event to open window without reload
+                if (window.location.pathname === '/access') {
+                  window.dispatchEvent(new CustomEvent('projex:open-card', { detail: 'settings' }))
+                } else {
+                  window.location.href = '/access?card=settings'
+                }
               }}
               className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors flex items-center gap-3"
             >
@@ -155,14 +160,18 @@ export default function UserProfileDropdown() {
             <button
               onClick={() => {
                 setIsOpen(false)
-                window.location.href = '/profile'
+                if (window.location.pathname === '/access') {
+                  window.dispatchEvent(new CustomEvent('projex:open-card', { detail: 'settings' }))
+                } else {
+                  window.location.href = '/access?card=settings'
+                }
               }}
               className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors flex items-center gap-3"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              Profile
+              Account
             </button>
 
             <button
