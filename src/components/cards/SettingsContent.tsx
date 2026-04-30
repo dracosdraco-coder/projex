@@ -85,12 +85,18 @@ function UsageDashboard({ plan }: { plan: string }) {
 }
 
 export default function SettingsContent() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, updatePassword, resetPassword } = useAuth()
   const subscription = useSubscription()
   const [tab, setTab] = useState<Tab>('account')
   const [annual, setAnnual] = useState(true)
   const [addons, setAddons] = useState(ADDONS)
   const [notifSettings, setNotifSettings] = useState({ email: true, push: true, sms: false, marketing: false })
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
 
   // Load notification prefs from profile
   useEffect(() => {
@@ -620,10 +626,81 @@ export default function SettingsContent() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Password</p>
-                        <p className="text-[11px] text-gray-500 dark:text-gray-400">Last changed 30 days ago</p>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400">Update your account password</p>
                       </div>
-                      <button className="text-[12px] text-blue-600 dark:text-blue-400 hover:underline">Change</button>
+                      {!showPasswordForm && (
+                        <button
+                          onClick={() => { setShowPasswordForm(true); setPasswordError(''); setPasswordSuccess(false) }}
+                          className="text-[12px] text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                          Change
+                        </button>
+                      )}
                     </div>
+                    {showPasswordForm && (
+                      <div className="mt-4 space-y-3">
+                        {passwordSuccess ? (
+                          <p className="text-xs text-green-600 dark:text-green-400 font-medium">Password updated successfully.</p>
+                        ) : (
+                          <>
+                            {passwordError && (
+                              <p className="text-xs text-red-600 dark:text-red-400">{passwordError}</p>
+                            )}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">New password</label>
+                              <input
+                                type="password"
+                                value={newPassword}
+                                onChange={e => setNewPassword(e.target.value)}
+                                placeholder="Min. 6 characters"
+                                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#111] border border-gray-200 dark:border-[#3c3c3e] rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Confirm password</label>
+                              <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={e => setConfirmPassword(e.target.value)}
+                                placeholder="••••••••"
+                                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-[#111] border border-gray-200 dark:border-[#3c3c3e] rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-400"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={async () => {
+                                  setPasswordError('')
+                                  if (newPassword.length < 6) { setPasswordError('Minimum 6 characters'); return }
+                                  if (newPassword !== confirmPassword) { setPasswordError('Passwords do not match'); return }
+                                  setPasswordLoading(true)
+                                  try {
+                                    await updatePassword(newPassword)
+                                    setPasswordSuccess(true)
+                                    setNewPassword('')
+                                    setConfirmPassword('')
+                                    setTimeout(() => { setShowPasswordForm(false); setPasswordSuccess(false) }, 2000)
+                                  } catch (err: any) {
+                                    setPasswordError(err.message || 'Failed to update password')
+                                  } finally {
+                                    setPasswordLoading(false)
+                                  }
+                                }}
+                                disabled={passwordLoading || !newPassword || !confirmPassword}
+                                className="flex-1 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-xs font-medium disabled:opacity-50 hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors"
+                              >
+                                {passwordLoading ? 'Updating...' : 'Update Password'}
+                              </button>
+                              <button
+                                onClick={() => { setShowPasswordForm(false); setNewPassword(''); setConfirmPassword(''); setPasswordError('') }}
+                                className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="p-4 rounded-xl border border-gray-200 dark:border-[#2a2a2a]">
                     <div className="flex items-center justify-between">

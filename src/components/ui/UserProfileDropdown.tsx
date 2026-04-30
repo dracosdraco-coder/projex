@@ -3,9 +3,60 @@
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
 
+function ResetPasswordModal({ email, onClose }: { email: string; onClose: () => void }) {
+  const { resetPassword } = useAuth()
+  const [sent, setSent] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSend = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      await resetPassword(email)
+      setSent(true)
+    } catch (err: any) {
+      setError(err.message || 'Failed to send reset link')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white dark:bg-[#1e1e1e] rounded-2xl shadow-2xl border border-gray-200 dark:border-[#2a2a2a] p-6 w-80 mx-4" onClick={e => e.stopPropagation()}>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Reset Password</h2>
+        {sent ? (
+          <div className="mt-4 text-center space-y-3">
+            <p className="text-sm text-green-600 dark:text-green-400 font-medium">Reset link sent!</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Check <span className="font-medium">{email}</span> and follow the link to set a new password.</p>
+            <button onClick={onClose} className="mt-2 w-full py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors">Done</button>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">We'll send a password reset link to <span className="font-medium text-gray-700 dark:text-gray-300">{email}</span>.</p>
+            {error && <p className="text-xs text-red-600 dark:text-red-400 mb-3">{error}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={handleSend}
+                disabled={loading}
+                className="flex-1 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg text-sm font-medium hover:bg-gray-700 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Sending...' : 'Send Reset Link'}
+              </button>
+              <button onClick={onClose} className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">Cancel</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function UserProfileDropdown() {
   const { user, signOut } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
+  const [showResetModal, setShowResetModal] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Close dropdown when clicking outside
@@ -38,6 +89,8 @@ export default function UserProfileDropdown() {
   }
 
   return (
+    <>
+    {showResetModal && <ResetPasswordModal email={userEmail} onClose={() => setShowResetModal(false)} />}
     <div className="relative" ref={dropdownRef}>
       {/* Profile Button */}
       <button
@@ -111,6 +164,16 @@ export default function UserProfileDropdown() {
               </svg>
               Profile
             </button>
+
+            <button
+              onClick={() => { setIsOpen(false); setShowResetModal(true) }}
+              className="w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors flex items-center gap-3"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              Reset Password
+            </button>
           </div>
 
           {/* Logout */}
@@ -128,5 +191,6 @@ export default function UserProfileDropdown() {
         </div>
       )}
     </div>
+    </>
   )
 }

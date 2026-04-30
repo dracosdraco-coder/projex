@@ -272,6 +272,15 @@ export default function AccessClient() {
     handleToggleDockItem
   } = useWindowManager(initialCards)
 
+  // Open a specific card from URL param (e.g. ?card=settings from UserProfileDropdown)
+  useEffect(() => {
+    const cardParam = searchParams.get('card')
+    if (cardParam) {
+      window.history.replaceState({}, '', '/access')
+      handleDockClick(cardParam)
+    }
+  }, [searchParams, handleDockClick])
+
   // Infinite canvas
   const {
     transform: canvasTransform,
