@@ -1890,7 +1890,12 @@ onClose={() => {
       <HelpButton onClick={() => setShowOnboarding(true)} />
 
       {/* AI Project Manager */}
-      <PMChat />
+      <PMChat
+        onCreateDocument={createGeneratedDocument}
+        onCreateProject={createProject}
+        onCreateTask={createTask}
+        onRefetch={refetch}
+      />
 
     </FileProvider>
     </RolesProvider>

@@ -8,91 +8,150 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 // ── Tool definitions ────────────────────────────────────────────────────────
 
 const PM_TOOLS: Anthropic.Tool[] = [
+  // ── Read tools ──────────────────────────────────────────────────────────
   {
     name: 'list_projects',
-    description: 'List all projects. Returns name, status, budget, contract amount, progress, client, due date. Use this first when asked about jobs, projects, or workload.',
+    description: 'List all projects with status, budget, contract amount, progress, client, and due date.',
     input_schema: {
       type: 'object',
       properties: {
-        status: {
-          type: 'string',
-          enum: ['active', 'completed', 'on-hold', 'cancelled'],
-          description: 'Optional: filter by status',
-        },
+        status: { type: 'string', enum: ['active', 'completed', 'on-hold', 'cancelled'] },
       },
     },
   },
   {
     name: 'get_project_details',
-    description: 'Get full details for one project: tasks, team members, expenses, and all generated documents (estimates, invoices, change orders).',
+    description: 'Get full details for one project: tasks, expenses, team, and all documents.',
     input_schema: {
       type: 'object',
       properties: {
-        project_id: { type: 'string', description: 'The project ID' },
+        project_id: { type: 'string' },
       },
       required: ['project_id'],
     },
   },
   {
     name: 'list_documents',
-    description: 'List generated financial documents (estimates, invoices, change orders, purchase orders). Filter by type or status.',
+    description: 'List financial documents. Use status "overdue" for past-due unpaid invoices.',
     input_schema: {
       type: 'object',
       properties: {
-        type: {
-          type: 'string',
-          enum: ['estimate', 'invoice', 'change-order', 'purchase-order', 'work-order', 'proposal', 'contract'],
-          description: 'Document type filter',
-        },
-        status: {
-          type: 'string',
-          enum: ['draft', 'sent', 'viewed', 'approved', 'rejected', 'paid', 'void', 'overdue'],
-          description: 'Status filter — use "overdue" to find past-due unpaid invoices',
-        },
-        project_id: { type: 'string', description: 'Filter to one project' },
+        type: { type: 'string', enum: ['estimate', 'invoice', 'change-order', 'purchase-order', 'work-order', 'proposal', 'contract'] },
+        status: { type: 'string', enum: ['draft', 'sent', 'viewed', 'approved', 'rejected', 'paid', 'void', 'overdue'] },
+        project_id: { type: 'string' },
       },
     },
   },
   {
     name: 'get_financial_summary',
-    description: 'Overall financial snapshot: total contract value, amount paid, amount outstanding, overdue totals, and project counts by status. Use this for "how are we doing" type questions.',
-    input_schema: {
-      type: 'object',
-      properties: {},
-    },
+    description: 'Overall financial snapshot: paid, outstanding, overdue totals, project counts.',
+    input_schema: { type: 'object', properties: {} },
   },
   {
     name: 'list_tasks',
-    description: 'List tasks across projects, with status, priority, assignee, and due dates.',
+    description: 'List tasks with status, priority, assignee, and due dates.',
     input_schema: {
       type: 'object',
       properties: {
-        project_id: { type: 'string', description: 'Optional: filter to one project' },
-        status: {
-          type: 'string',
-          enum: ['todo', 'in-progress', 'review', 'completed'],
-          description: 'Optional: filter by task status',
-        },
-        priority: {
-          type: 'string',
-          enum: ['low', 'medium', 'high', 'urgent'],
-          description: 'Optional: filter by priority',
-        },
+        project_id: { type: 'string' },
+        status: { type: 'string', enum: ['todo', 'in-progress', 'review', 'completed'] },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
       },
+    },
+  },
+
+  // ── Write tools (propose → client confirms → client writes) ─────────────
+  {
+    name: 'propose_create_document',
+    description: 'Propose creating an estimate, invoice, change order, or purchase order. Always call list_projects first to get the correct project_id. The user will confirm before it is saved.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['estimate', 'invoice', 'change-order', 'purchase-order', 'work-order'] },
+        project_id: { type: 'string', description: 'Project to attach this document to' },
+        client_name: { type: 'string' },
+        client_email: { type: 'string' },
+        client_address: { type: 'string' },
+        line_items: {
+          type: 'array',
+          description: 'Line items for the document',
+          items: {
+            type: 'object',
+            properties: {
+              description: { type: 'string' },
+              quantity: { type: 'number' },
+              unit: { type: 'string' },
+              price: { type: 'number', description: 'Unit price (client-facing)' },
+            },
+            required: ['description', 'quantity', 'price'],
+          },
+        },
+        scope_of_work: { type: 'string' },
+        terms: { type: 'string' },
+        notes: { type: 'string' },
+        tax_rate: { type: 'number', description: 'Tax percentage, e.g. 8 for 8%' },
+        date_due: { type: 'string', description: 'ISO date string YYYY-MM-DD' },
+      },
+      required: ['type', 'line_items'],
+    },
+  },
+  {
+    name: 'propose_create_project',
+    description: 'Propose creating a new project. The user will confirm before it is saved.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Project name' },
+        client: { type: 'string', description: 'Client name' },
+        client_email: { type: 'string' },
+        client_phone: { type: 'string' },
+        address: { type: 'string', description: 'Job site address' },
+        description: { type: 'string' },
+        contract_amount: { type: 'number' },
+        start_date: { type: 'string', description: 'YYYY-MM-DD' },
+        due_date: { type: 'string', description: 'YYYY-MM-DD' },
+        status: { type: 'string', enum: ['active', 'on-hold'] },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'propose_create_task',
+    description: 'Propose adding a task to a project. The user will confirm before it is saved.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'string' },
+        title: { type: 'string' },
+        description: { type: 'string' },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+        due_date: { type: 'string', description: 'YYYY-MM-DD' },
+        estimated_hours: { type: 'number' },
+        estimated_cost: { type: 'number' },
+      },
+      required: ['project_id', 'title'],
     },
   },
 ]
 
 // ── Tool execution ──────────────────────────────────────────────────────────
 
-async function runTool(name: string, input: any, supabase: any): Promise<any> {
+const fmt = (n: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n)
+
+async function runTool(
+  name: string,
+  input: any,
+  supabase: any,
+  send: (event: object) => void,
+): Promise<any> {
   const today = new Date().toISOString().split('T')[0]
 
   switch (name) {
     case 'list_projects': {
       let q = supabase
         .from('projects')
-        .select('id, name, status, progress, budget, contract_amount, actual_cost, client_name, client_email, due_date, start_date, end_date, description, address, created_at')
+        .select('id, name, status, progress, budget, contract_amount, actual_cost, client_name, client_email, due_date, start_date, description, address, created_at')
         .order('created_at', { ascending: false })
       if (input?.status) q = q.eq('status', input.status)
       const { data, error } = await q
@@ -101,27 +160,20 @@ async function runTool(name: string, input: any, supabase: any): Promise<any> {
     }
 
     case 'get_project_details': {
-      const [proj, tasks, expenses, docs, team] = await Promise.all([
+      const [proj, tasks, expenses, docs] = await Promise.all([
         supabase.from('projects').select('*').eq('id', input.project_id).single(),
-        supabase.from('tasks').select('id, title, status, priority, assigned_to, due_date, estimated_hours, actual_hours, estimated_cost, actual_cost').eq('project_id', input.project_id),
+        supabase.from('tasks').select('id, title, status, priority, due_date, estimated_hours, actual_hours, estimated_cost, actual_cost').eq('project_id', input.project_id),
         supabase.from('expenses').select('id, category, amount, date, vendor, description').eq('project_id', input.project_id),
-        supabase.from('generated_documents').select('id, type, status, document_number, total, subtotal, date_issued, date_due, client_name').eq('project_id', input.project_id).order('date_issued', { ascending: false }),
-        supabase.from('project_team').select('team_member_id, role').eq('project_id', input.project_id),
+        supabase.from('generated_documents').select('id, type, status, document_number, total, date_issued, date_due, client_name').eq('project_id', input.project_id).order('date_issued', { ascending: false }),
       ])
       const expenseTotal = expenses.data?.reduce((s: number, e: any) => s + (e.amount || 0), 0) ?? 0
-      return {
-        project: proj.data,
-        tasks: tasks.data ?? [],
-        expenses: { items: expenses.data ?? [], total: expenseTotal },
-        documents: docs.data ?? [],
-        team: team.data ?? [],
-      }
+      return { project: proj.data, tasks: tasks.data ?? [], expenses: { items: expenses.data ?? [], total: expenseTotal }, documents: docs.data ?? [] }
     }
 
     case 'list_documents': {
       let q = supabase
         .from('generated_documents')
-        .select('id, type, status, document_number, total, subtotal, date_issued, date_due, date_paid, client_name, project_id, created_at')
+        .select('id, type, status, document_number, total, subtotal, date_issued, date_due, date_paid, client_name, project_id')
         .order('date_issued', { ascending: false })
         .limit(50)
       if (input?.type) q = q.eq('type', input.type)
@@ -139,42 +191,118 @@ async function runTool(name: string, input: any, supabase: any): Promise<any> {
     case 'get_financial_summary': {
       const [projects, docs] = await Promise.all([
         supabase.from('projects').select('id, name, status, budget, contract_amount, actual_cost'),
-        supabase.from('generated_documents').select('type, status, total, date_due, date_paid'),
+        supabase.from('generated_documents').select('type, status, total, date_due'),
       ])
-      const p = projects.data ?? []
-      const d = docs.data ?? []
+      const p = projects.data ?? [], d = docs.data ?? []
       const invoices = d.filter((x: any) => x.type === 'invoice')
       const paid = invoices.filter((x: any) => x.status === 'paid').reduce((s: number, x: any) => s + (x.total || 0), 0)
       const outstanding = invoices.filter((x: any) => ['sent', 'viewed', 'approved'].includes(x.status)).reduce((s: number, x: any) => s + (x.total || 0), 0)
       const overdueItems = invoices.filter((x: any) => x.date_due && x.date_due < today && !['paid', 'void'].includes(x.status))
-      const overdueTotal = overdueItems.reduce((s: number, x: any) => s + (x.total || 0), 0)
-      const estimatesPending = d.filter((x: any) => x.type === 'estimate' && ['sent', 'viewed'].includes(x.status)).reduce((s: number, x: any) => s + (x.total || 0), 0)
       return {
-        projects: {
-          total: p.length,
-          active: p.filter((x: any) => x.status === 'active').length,
-          completed: p.filter((x: any) => x.status === 'completed').length,
-          onHold: p.filter((x: any) => x.status === 'on-hold').length,
-          totalContractValue: p.reduce((s: number, x: any) => s + (x.contract_amount || 0), 0),
-        },
-        invoices: { paid, outstanding, overdueTotal, overdueCount: overdueItems.length },
-        estimatesPendingApproval: estimatesPending,
+        projects: { total: p.length, active: p.filter((x: any) => x.status === 'active').length, completed: p.filter((x: any) => x.status === 'completed').length, onHold: p.filter((x: any) => x.status === 'on-hold').length, totalContractValue: p.reduce((s: number, x: any) => s + (x.contract_amount || 0), 0) },
+        invoices: { paid, outstanding, overdueTotal: overdueItems.reduce((s: number, x: any) => s + (x.total || 0), 0), overdueCount: overdueItems.length },
+        estimatesPendingApproval: d.filter((x: any) => x.type === 'estimate' && ['sent', 'viewed'].includes(x.status)).reduce((s: number, x: any) => s + (x.total || 0), 0),
         today,
       }
     }
 
     case 'list_tasks': {
-      let q = supabase
-        .from('tasks')
-        .select('id, title, status, priority, assigned_to, due_date, project_id, estimated_hours, actual_hours, estimated_cost, actual_cost, created_at')
-        .order('due_date', { ascending: true })
-        .limit(100)
+      let q = supabase.from('tasks').select('id, title, status, priority, due_date, project_id, estimated_hours, actual_hours').order('due_date', { ascending: true }).limit(100)
       if (input?.project_id) q = q.eq('project_id', input.project_id)
       if (input?.status) q = q.eq('status', input.status)
       if (input?.priority) q = q.eq('priority', input.priority)
       const { data, error } = await q
       if (error) return { error: error.message }
       return { tasks: data, count: data?.length ?? 0 }
+    }
+
+    // ── Propose tools ──────────────────────────────────────────────────────
+
+    case 'propose_create_document': {
+      const items = (input.line_items || []).map((li: any, i: number) => ({
+        id: String(Date.now() + i),
+        description: li.description || '',
+        quantity: Number(li.quantity) || 1,
+        unit: li.unit || 'ea',
+        cost: 0, markup: 0,
+        price: Number(li.price) || 0,
+      }))
+      const subtotal = items.reduce((s: number, li: any) => s + li.quantity * li.price, 0)
+      const taxRate = Number(input.tax_rate) || 0
+      const taxTotal = subtotal * (taxRate / 100)
+      const total = subtotal + taxTotal
+      const typeLabel = (input.type as string).replace('-', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+      const summary = `New ${typeLabel} — ${input.client_name || 'client'} · ${items.length} item${items.length !== 1 ? 's' : ''} · ${fmt(total)}`
+
+      send({
+        type: 'action',
+        actionType: 'create_document',
+        id: `act_${Date.now()}`,
+        summary,
+        data: {
+          type: input.type,
+          projectId: input.project_id || null,
+          clientName: input.client_name || '',
+          clientEmail: input.client_email || '',
+          clientAddress: input.client_address || '',
+          lineItems: items,
+          scopeOfWork: input.scope_of_work || '',
+          terms: input.terms || '',
+          notes: input.notes || '',
+          taxRate,
+          subtotal,
+          taxTotal,
+          total,
+          dateIssued: today,
+          dateDue: input.date_due || '',
+          status: 'draft',
+        },
+      })
+      return { status: 'pending_confirmation', summary }
+    }
+
+    case 'propose_create_project': {
+      const summary = `New project: ${input.name}${input.client ? ` for ${input.client}` : ''}${input.contract_amount ? ` · ${fmt(input.contract_amount)}` : ''}`
+      send({
+        type: 'action',
+        actionType: 'create_project',
+        id: `act_${Date.now()}`,
+        summary,
+        data: {
+          name: input.name,
+          client: input.client || '',
+          clientEmail: input.client_email || '',
+          clientPhone: input.client_phone || '',
+          address: input.address || '',
+          description: input.description || '',
+          contractAmount: input.contract_amount || 0,
+          startDate: input.start_date || '',
+          dueDate: input.due_date || '',
+          status: input.status || 'active',
+        },
+      })
+      return { status: 'pending_confirmation', summary }
+    }
+
+    case 'propose_create_task': {
+      const summary = `New task: "${input.title}"${input.priority ? ` · ${input.priority} priority` : ''}${input.due_date ? ` · due ${input.due_date}` : ''}`
+      send({
+        type: 'action',
+        actionType: 'create_task',
+        id: `act_${Date.now()}`,
+        summary,
+        data: {
+          projectId: input.project_id,
+          title: input.title,
+          description: input.description || '',
+          priority: input.priority || 'medium',
+          dueDate: input.due_date || '',
+          estimatedHours: input.estimated_hours || 0,
+          estimatedCost: input.estimated_cost || 0,
+          status: 'todo',
+        },
+      })
+      return { status: 'pending_confirmation', summary }
     }
 
     default:
@@ -188,28 +316,29 @@ function buildSystemPrompt(projectSummaries: any[]): string {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
   const snapshot = projectSummaries.length > 0
     ? projectSummaries.map(p =>
-        `• ${p.name} (${p.status}) — Client: ${p.client_name || 'TBD'} | Contract: $${(p.contract_amount || 0).toLocaleString()} | Progress: ${p.progress || 0}%${p.due_date ? ` | Due: ${p.due_date}` : ''}`
+        `• ${p.name} [id:${p.id}] (${p.status}) — Client: ${p.client_name || 'TBD'} | Contract: $${(p.contract_amount || 0).toLocaleString()} | Progress: ${p.progress || 0}%${p.due_date ? ` | Due: ${p.due_date}` : ''}`
       ).join('\n')
     : 'No projects yet.'
 
-  return `You are a sharp, experienced AI Project Manager for a contracting and construction company. You have real-time access to all project data, finances, invoices, tasks, and team information.
+  return `You are a sharp AI Project Manager for a contracting and construction company. You have real-time access to all project data, finances, invoices, tasks, and can create new records.
 
 Today: ${today}
 
-Current project snapshot:
+Current projects (use these IDs when creating documents or tasks):
 ${snapshot}
 
-Your role:
-- Answer questions about projects, finances, clients, and deadlines with precision
-- Proactively surface risks: overdue invoices, budget overruns, approaching deadlines, stalled tasks
-- Give business-level insights, not just data dumps — tell the user what matters
-- Format lists and tables clearly; be concise but complete
-- When you need more detail, use your tools before answering — don't guess
+Capabilities:
+- Query and answer questions about projects, finances, invoices, tasks
+- Create estimates, invoices, change orders, purchase orders → use propose_create_document
+- Create new projects → use propose_create_project
+- Add tasks to projects → use propose_create_task
 
-Phase 1 capabilities: Query and answer questions about all project data.
-Phase 2 (coming soon): Create estimates, invoices, projects, and purchase orders directly from this chat.
-
-Speak like a senior PM, not a chatbot. Be direct.`
+Rules:
+- When creating a document for a project, always call list_projects first if you don't already have the project_id
+- When you propose a creation, tell the user what you've prepared and ask them to confirm below
+- Surface risks proactively: overdue invoices, budget overruns, approaching deadlines
+- Be direct and specific — this is a business tool, not a chatbot
+- Format lists clearly; use **bold** for important numbers`
 }
 
 // ── Route handler ───────────────────────────────────────────────────────────
@@ -219,12 +348,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: () => {},
-      },
-    }
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
   )
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -232,7 +356,6 @@ export async function POST(req: NextRequest) {
 
   const { messages } = await req.json()
 
-  // Load lightweight project snapshot for system prompt
   const { data: projects } = await supabase
     .from('projects')
     .select('id, name, status, progress, contract_amount, client_name, due_date')
@@ -240,7 +363,6 @@ export async function POST(req: NextRequest) {
     .limit(20)
 
   const systemPrompt = buildSystemPrompt(projects ?? [])
-
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -249,13 +371,12 @@ export async function POST(req: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
 
       try {
-        // Agentic loop — handles multi-step tool use
         let currentMessages: Anthropic.MessageParam[] = messages.map((m: any) => ({
           role: m.role as 'user' | 'assistant',
           content: m.content as string,
         }))
 
-        for (let turn = 0; turn < 5; turn++) {
+        for (let turn = 0; turn < 6; turn++) {
           const aiStream = anthropic.messages.stream({
             model: 'claude-sonnet-4-6',
             max_tokens: 2048,
@@ -264,7 +385,6 @@ export async function POST(req: NextRequest) {
             tools: PM_TOOLS,
           })
 
-          // Collect content blocks while streaming text to client
           const contentBlocks: any[] = []
           let currentBlock: any = null
           let currentJson = ''
@@ -297,17 +417,14 @@ export async function POST(req: NextRequest) {
           }
 
           const finalMsg = await aiStream.finalMessage()
-
           if (finalMsg.stop_reason !== 'tool_use') break
 
-          // Execute all tool calls
           const toolResults: Anthropic.ToolResultBlockParam[] = []
           for (const block of contentBlocks.filter(b => b.type === 'tool_use')) {
-            const result = await runTool(block.name, block.input, supabase)
+            const result = await runTool(block.name, block.input, supabase, send)
             toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) })
           }
 
-          // Append assistant + tool results and loop
           currentMessages = [
             ...currentMessages,
             { role: 'assistant', content: contentBlocks },
@@ -326,10 +443,6 @@ export async function POST(req: NextRequest) {
   })
 
   return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'X-Accel-Buffering': 'no',
-    },
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no' },
   })
 }
