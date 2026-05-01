@@ -82,6 +82,7 @@ import {
 // Context and Utilities
 import { FileProvider } from '@/context/FileContext'
 import { useGlobalSearch, SearchResult } from '@/hooks/useGlobalSearch'
+import PMChat from '@/components/PMChat'
 import { generateDocumentPDF, saveProjectXFormat } from '@/lib/pdf-generator'
 import { convertDocument, quickConvert } from '@/lib/document-converter'
 import { useRealtime, usePresence } from '@/hooks/useRealtime'
@@ -1887,6 +1888,9 @@ onClose={() => {
       {/* Onboarding */}
       <Onboarding visible={showOnboarding} onComplete={completeOnboarding} />
       <HelpButton onClick={() => setShowOnboarding(true)} />
+
+      {/* AI Project Manager */}
+      <PMChat />
 
     </FileProvider>
     </RolesProvider>
