@@ -7,17 +7,14 @@
 // ============================================
 
 import jsPDF from 'jspdf'
-import * as pdfjsLib from 'pdfjs-dist'
-
-// Use CDN worker matching installed version — no build config needed
-if (typeof window !== 'undefined') {
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
-}
 
 async function renderPdfToImages(dataUrl: string, pageW: number, pageH: number): Promise<string[]> {
   const images: string[] = []
   try {
+    // Dynamic import keeps pdfjs-dist out of the SSR bundle (avoids DOMMatrix errors)
+    const pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
     const base64 = dataUrl.split(',')[1]
     const binary = atob(base64)
     const array = new Uint8Array(binary.length)
