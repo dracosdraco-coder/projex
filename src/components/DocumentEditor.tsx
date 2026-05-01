@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { X, Plus, Trash2, Save, Download, Eye, Copy, ChevronUp, ChevronDown, Paperclip } from 'lucide-react'
+import { X, Plus, Trash2, Save, Download, Eye, Copy, ChevronUp, ChevronDown, Paperclip, Sparkles, Loader2 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { createBrowserClient } from '@supabase/ssr'
 
@@ -132,6 +132,11 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   const [activeTab, setActiveTab] = useState<'editor' | 'breakdown'>('editor')
   const [expandedPhoto, setExpandedPhoto] = useState<string | null>(null)
   const [attachments, setAttachments] = useState<Attachment[]>(draft?.attachments ?? document?.attachments ?? [])
+  const [showAiFill, setShowAiFill] = useState(false)
+  const [fillDesc, setFillDesc] = useState('')
+  const [fillPhotos, setFillPhotos] = useState<string[]>([])
+  const [fillLoading, setFillLoading] = useState(false)
+  const [fillError, setFillError] = useState('')
 
   const [lineItems, setLineItems] = useState<LineItem[]>(
     draft?.lineItems ||
@@ -302,6 +307,45 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
   }
   const removeAttachment = (id: string) => setAttachments(prev => prev.filter(a => a.id !== id))
 
+  const handleAiFill = async () => {
+    if (!fillDesc.trim() || fillLoading) return
+    setFillLoading(true); setFillError('')
+    try {
+      const res = await fetch('/api/pm/fill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, description: fillDesc, photos: fillPhotos }),
+      })
+      if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'AI fill failed') }
+      const data = await res.json()
+      if (data.lineItems?.length) {
+        setLineItems(data.lineItems.map((li: any, i: number) => ({
+          id: String(Date.now() + i),
+          description: li.description || '',
+          quantity: Number(li.quantity) || 1,
+          unit: li.unit || 'ea',
+          cost: 0, markup: 0,
+          price: Number(li.price) || 0,
+        })))
+      }
+      if (data.scopeOfWork) setScopeOfWork(data.scopeOfWork)
+      if (data.terms) setTerms(data.terms)
+      if (data.notes) setNotes(data.notes)
+      setShowAiFill(false); setFillDesc(''); setFillPhotos([])
+    } catch (e: any) {
+      setFillError(e.message || 'Something went wrong')
+    } finally { setFillLoading(false) }
+  }
+
+  const handleFillPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    Array.from(e.target.files || []).slice(0, 4 - fillPhotos.length).forEach(file => {
+      const reader = new FileReader()
+      reader.onload = ev => setFillPhotos(prev => [...prev, ev.target?.result as string].slice(0, 4))
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }
+
   const handleLineItemPhoto = (liId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
     const reader = new FileReader()
@@ -390,7 +434,52 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
 
                   {/* Scope of Work */}
                   <div>
-                    <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-0.5 uppercase tracking-wide">Scope of Work</label>
+                    <div className="flex items-center justify-between mb-0.5">
+                      <label className="block text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Scope of Work</label>
+                      <button
+                        onClick={() => setShowAiFill(v => !v)}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${showAiFill ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300' : 'text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20'}`}
+                      >
+                        <Sparkles className="w-3 h-3" /> AI Fill
+                      </button>
+                    </div>
+
+                    {/* AI Fill Panel */}
+                    {showAiFill && (
+                      <div className="mb-2 p-3 bg-violet-50 dark:bg-violet-900/20 border border-violet-200 dark:border-violet-800/40 rounded-xl space-y-2">
+                        <textarea
+                          value={fillDesc}
+                          onChange={e => setFillDesc(e.target.value)}
+                          placeholder="Describe the work: e.g. 'Replace 200 sq ft of hardwood flooring in living room, sand and refinish...'"
+                          rows={3}
+                          className="w-full px-2.5 py-2 text-xs bg-white dark:bg-[#222] border border-violet-200 dark:border-violet-700/50 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 text-gray-900 dark:text-gray-100 placeholder-gray-400 resize-none"
+                        />
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1 flex-wrap flex-1">
+                            {fillPhotos.map((p, i) => (
+                              <div key={i} className="relative w-8 h-8">
+                                <img src={p} alt="" className="w-8 h-8 rounded object-cover border border-violet-200" />
+                                <button onClick={() => setFillPhotos(prev => prev.filter((_, j) => j !== i))} className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[8px] flex items-center justify-center">✕</button>
+                              </div>
+                            ))}
+                            {fillPhotos.length < 4 && (
+                              <label className="w-8 h-8 rounded border-2 border-dashed border-violet-300 dark:border-violet-700 flex items-center justify-center text-violet-400 hover:border-violet-500 cursor-pointer text-[10px]">
+                                📷<input type="file" accept="image/*" multiple className="hidden" onChange={handleFillPhoto} />
+                              </label>
+                            )}
+                          </div>
+                          {fillError && <span className="text-[10px] text-red-500 flex-1">{fillError}</span>}
+                          <button
+                            onClick={handleAiFill}
+                            disabled={!fillDesc.trim() || fillLoading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-[10px] font-semibold rounded-lg disabled:opacity-50 transition-colors shrink-0"
+                          >
+                            {fillLoading ? <><Loader2 className="w-3 h-3 animate-spin" /> Filling…</> : <><Sparkles className="w-3 h-3" /> Fill Form</>}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <AutoTextarea
                       value={scopeOfWork}
                       onChange={setScopeOfWork}

@@ -1894,6 +1894,10 @@ onClose={() => {
         onCreateDocument={createGeneratedDocument}
         onCreateProject={createProject}
         onCreateTask={createTask}
+        onUpdateDocument={async (id, updates) => { await updateGeneratedDocument(id, updates) }}
+        onAddExpense={async (projectId, expense) => { await addExpenseHook(projectId, expense) }}
+        onUpdateProject={async (projectId, updates) => { await updateProjectHook(projectId, updates) }}
+        onUpdateTask={async (taskId, updates) => { await updateTask(taskId, updates) }}
         onRefetch={refetch}
       />
 

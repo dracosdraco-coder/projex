@@ -30,7 +30,7 @@ async function renderPdfToImages(dataUrl: string, pageW: number, pageH: number):
       const vp = page.getViewport({ scale })
       const canvas = document.createElement('canvas')
       canvas.width = vp.width; canvas.height = vp.height
-      await page.render({ canvasContext: canvas.getContext('2d')!, viewport: vp }).promise
+      await (page.render as any)({ canvasContext: canvas.getContext('2d')!, viewport: vp }).promise
       images.push(canvas.toDataURL('image/jpeg', 0.92))
     }
   } catch (e) { console.warn('PDF render failed', e) }
@@ -53,7 +53,12 @@ const TYPE_LABELS: Record<string, string> = {
 
 export async function generateDocumentPDF(doc: any): Promise<string> {
   if (doc.type === 'inspection') return generateInspectionPDF(doc)
-  if (doc.type === 'proposal' || doc.type === 'contract') return generateProposalPDF(doc)
+  if (doc.type === 'proposal' || doc.type === 'contract') {
+    if (doc.notes) {
+      try { const m = JSON.parse(doc.notes); if (m.freeform) return generateFreeformPDF(doc, m) } catch {}
+    }
+    return generateProposalPDF(doc)
+  }
   return generateFinancialPDF(doc)
 }
 
@@ -506,6 +511,97 @@ function generateProposalPDF(doc: any): string {
   pdf.text('Date: ____________', W - M - 200, y + 80)
 
   const filename = `${doc.documentNumber || doc.type || 'proposal'}.pdf`
+  pdf.save(filename)
+  return filename
+}
+
+// ---- Freeform documents (AI-generated letters, notices, agreements) ----
+
+function generateFreeformPDF(doc: any, meta: { title: string; content: string }): string {
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' })
+  const W = pdf.internal.pageSize.getWidth()
+  const H = pdf.internal.pageSize.getHeight()
+  const M = 60
+  let y = M
+
+  const checkPage = (need: number) => { if (y + need > H - M) { pdf.addPage(); y = M } }
+  const [aR, aG, aB] = getBrandRgb()
+
+  // Accent top bar
+  pdf.setFillColor(aR, aG, aB); pdf.rect(0, 0, W, 5, 'F')
+  y = M + 8
+
+  // Company header left + doc number right
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(17, 24, 39)
+  pdf.text(doc.companyName || 'Company', M, y)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
+  pdf.text(`#${doc.documentNumber || '—'}`, W - M, y, { align: 'right' })
+  y += 13
+  if (doc.companyAddress) { pdf.text(doc.companyAddress, M, y); y += 11 }
+  if (doc.companyPhone || doc.companyEmail) {
+    pdf.text([doc.companyPhone, doc.companyEmail].filter(Boolean).join('  ·  '), M, y); y += 11
+  }
+  pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
+  pdf.text(doc.dateIssued || '', W - M, M + 8 + 13, { align: 'right' })
+
+  y += 10
+  pdf.setDrawColor(229, 231, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 22
+
+  // Title
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(20); pdf.setTextColor(17, 24, 39)
+  pdf.splitTextToSize(meta.title || 'Document', W - M * 2).forEach((line: string) => { pdf.text(line, M, y); y += 26 })
+  y += 4
+
+  if (doc.clientName) {
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(9); pdf.setTextColor(107, 114, 128)
+    pdf.text(`Prepared for: ${doc.clientName}`, M, y); y += 16
+  }
+
+  pdf.setDrawColor(229, 231, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 18
+
+  // Content — render paragraphs, headings, and bullets
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(55, 65, 81)
+  const paragraphs = (meta.content || '').split('\n')
+
+  for (const para of paragraphs) {
+    if (!para.trim()) { y += 8; continue }
+
+    const isHeading = /^#{1,3}\s/.test(para)
+    const isBullet = /^[-•*]\s/.test(para)
+    const text = para.replace(/^#{1,3}\s+/, '').replace(/^[-•*]\s+/, '').replace(/\*\*(.*?)\*\*/g, '$1')
+
+    if (isHeading) {
+      checkPage(26)
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(12); pdf.setTextColor(17, 24, 39)
+      pdf.text(text, M, y); y += 18
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(55, 65, 81)
+      continue
+    }
+
+    const indentX = isBullet ? M + 12 : M
+    const maxW = W - M * 2 - (isBullet ? 12 : 0)
+    const wrapped: string[] = pdf.splitTextToSize(text, maxW)
+    checkPage(wrapped.length * 14 + 4)
+    if (isBullet) { pdf.setFillColor(aR, aG, aB); pdf.circle(M + 3, y - 2.5, 2.5, 'F') }
+    wrapped.forEach((line: string, wi: number) => pdf.text(line, indentX, y + wi * 14))
+    y += wrapped.length * 14 + 4
+  }
+
+  // Signature block
+  checkPage(80); y += 16
+  pdf.setDrawColor(229, 231, 235); pdf.setLineWidth(0.5); pdf.line(M, y, W - M, y); y += 24
+  const sigMid = W / 2 + 10; const sigW = sigMid - M - 20
+  pdf.setDrawColor(156, 163, 175); pdf.setLineWidth(0.5)
+  pdf.line(M, y + 28, M + sigW, y + 28)
+  pdf.line(sigMid, y + 28, sigMid + sigW, y + 28)
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7); pdf.setTextColor(156, 163, 175)
+  pdf.text('CLIENT SIGNATURE / DATE', M, y + 36)
+  pdf.text('AUTHORIZED SIGNATURE / DATE', sigMid, y + 36)
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(107, 114, 128)
+  pdf.text(doc.clientName || '—', M, y + 44)
+  pdf.text(doc.companyName || '—', sigMid, y + 44)
+
+  const filename = `${doc.documentNumber || 'document'}.pdf`
   pdf.save(filename)
   return filename
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
-import { X, Send, Sparkles, Loader2, CheckCircle, XCircle, FileText, FolderOpen, CheckSquare } from 'lucide-react'
+import { X, Send, Sparkles, Loader2, CheckCircle, XCircle, FileText, FolderOpen, CheckSquare, DollarSign } from 'lucide-react'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -15,7 +15,7 @@ interface ChatMessage {
 interface ActionItem {
   kind: 'action'
   id: string
-  actionType: 'create_document' | 'create_project' | 'create_task'
+  actionType: 'create_document' | 'create_project' | 'create_task' | 'update_document' | 'log_expense' | 'update_project' | 'update_task' | 'create_freeform'
   summary: string
   data: any
   status: 'pending' | 'executing' | 'success' | 'cancelled' | 'error'
@@ -28,6 +28,10 @@ export interface PMChatProps {
   onCreateDocument?: (data: any) => Promise<any>
   onCreateProject?: (data: any) => Promise<any>
   onCreateTask?: (data: any) => Promise<any>
+  onUpdateDocument?: (id: string, updates: any) => Promise<any>
+  onAddExpense?: (projectId: string, expense: any) => Promise<any>
+  onUpdateProject?: (projectId: string, updates: any) => Promise<any>
+  onUpdateTask?: (taskId: string, updates: any) => Promise<any>
   onRefetch?: () => void
 }
 
@@ -42,6 +46,11 @@ const TOOL_LABELS: Record<string, string> = {
   propose_create_document: 'Preparing document…',
   propose_create_project: 'Building project…',
   propose_create_task: 'Setting up task…',
+  propose_update_document: 'Updating document…',
+  propose_log_expense: 'Logging expense…',
+  propose_update_project: 'Updating project…',
+  propose_update_task: 'Updating task…',
+  propose_create_freeform: 'Drafting document…',
 }
 
 const SUGGESTIONS = [
@@ -86,19 +95,41 @@ function MdText({ text }: { text: string }) {
 function ActionCard({ item, onConfirm, onCancel }: { item: ActionItem; onConfirm: () => void; onCancel: () => void }) {
   const { actionType, data, status, resultLabel } = item
 
-  const icon = actionType === 'create_document'
-    ? <FileText className="w-3.5 h-3.5" />
-    : actionType === 'create_project'
-      ? <FolderOpen className="w-3.5 h-3.5" />
-      : <CheckSquare className="w-3.5 h-3.5" />
+  const iconEl: Record<string, JSX.Element> = {
+    create_document: <FileText className="w-3.5 h-3.5" />,
+    update_document: <FileText className="w-3.5 h-3.5" />,
+    create_project: <FolderOpen className="w-3.5 h-3.5" />,
+    update_project: <FolderOpen className="w-3.5 h-3.5" />,
+    create_task: <CheckSquare className="w-3.5 h-3.5" />,
+    update_task: <CheckSquare className="w-3.5 h-3.5" />,
+    log_expense: <DollarSign className="w-3.5 h-3.5" />,
+    create_freeform: <FileText className="w-3.5 h-3.5" />,
+  }
+  const icon = iconEl[actionType] ?? <FileText className="w-3.5 h-3.5" />
 
-  const typeLabel = actionType === 'create_document'
-    ? (data.type as string).replace('-', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
-    : actionType === 'create_project' ? 'New Project' : 'New Task'
+  const typeLabelMap: Record<string, string> = {
+    create_document: (data.type as string).replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
+    update_document: 'Update Document',
+    create_project: 'New Project',
+    update_project: 'Update Project',
+    create_task: 'New Task',
+    update_task: 'Update Task',
+    log_expense: 'Log Expense',
+    create_freeform: 'Draft Document',
+  }
+  const typeLabel = typeLabelMap[actionType] ?? 'Action'
 
-  const confirmLabel = actionType === 'create_document'
-    ? `Create ${typeLabel}`
-    : actionType === 'create_project' ? 'Create Project' : 'Add Task'
+  const confirmLabelMap: Record<string, string> = {
+    create_document: `Create ${typeLabel}`,
+    update_document: `Mark ${(data.status as string).charAt(0).toUpperCase() + (data.status as string).slice(1)}`,
+    create_project: 'Create Project',
+    update_project: 'Update Project',
+    create_task: 'Add Task',
+    update_task: 'Update Task',
+    log_expense: 'Log Expense',
+    create_freeform: 'Create Document',
+  }
+  const confirmLabel = confirmLabelMap[actionType] ?? 'Confirm'
 
   if (status === 'success') {
     return (
@@ -203,6 +234,74 @@ function ActionCard({ item, onConfirm, onCancel }: { item: ActionItem; onConfirm
             </div>
           </div>
         )}
+
+        {actionType === 'update_document' && (
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">Document</span>
+              <span className="font-medium text-gray-800 dark:text-gray-200">{data.documentNumber || '—'}</span>
+            </div>
+            {data.clientName && (
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-400">Client</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">{data.clientName}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-400">New Status</span>
+              <span className={`font-semibold capitalize ${data.status === 'paid' ? 'text-green-600' : 'text-blue-600 dark:text-blue-400'}`}>{data.status}</span>
+            </div>
+            {data.datePaid && (
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-400">Date Paid</span>
+                <span className="font-medium text-gray-800 dark:text-gray-200">{data.datePaid}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {actionType === 'log_expense' && (
+          <div className="space-y-1.5">
+            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{data.description}</div>
+            <div className="flex gap-2 text-xs text-gray-400 flex-wrap">
+              {data.projectName && <span>→ {data.projectName}</span>}
+              {data.category && <span className="capitalize">{data.category}</span>}
+              {data.vendor && <span>· {data.vendor}</span>}
+            </div>
+            <div className="pt-1 border-t border-gray-100 dark:border-[#222] flex justify-between text-sm font-bold">
+              <span className="text-gray-700 dark:text-gray-300">Amount</span>
+              <span className="text-red-600 dark:text-red-400">{fmt(data.amount)}</span>
+            </div>
+          </div>
+        )}
+
+        {actionType === 'update_project' && (
+          <div className="space-y-1.5">
+            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{data.projectName || data.projectId}</div>
+            <div className="flex gap-3 text-xs flex-wrap">
+              {data.status && <span className="text-gray-400">Status → <span className="text-gray-700 dark:text-gray-300 font-medium capitalize">{data.status}</span></span>}
+              {data.progress !== undefined && <span className="text-gray-400">Progress → <span className="text-blue-600 dark:text-blue-400 font-medium">{data.progress}%</span></span>}
+            </div>
+          </div>
+        )}
+
+        {actionType === 'update_task' && (
+          <div className="space-y-1.5">
+            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{data.taskTitle || data.taskId}</div>
+            <div className="flex gap-3 text-xs flex-wrap">
+              {data.status && <span className="text-gray-400">Status → <span className="text-gray-700 dark:text-gray-300 font-medium capitalize">{(data.status as string).replace('-', ' ')}</span></span>}
+              {data.priority && <span className="text-gray-400">Priority → <span className={`font-medium ${data.priority === 'urgent' ? 'text-red-500' : data.priority === 'high' ? 'text-orange-500' : 'text-gray-500'}`}>{data.priority}</span></span>}
+            </div>
+          </div>
+        )}
+
+        {actionType === 'create_freeform' && (
+          <div className="space-y-1.5">
+            <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{data.title}</div>
+            {data.clientName && <div className="text-xs text-gray-500">For: {data.clientName}</div>}
+            <div className="text-[10px] text-gray-400 leading-relaxed line-clamp-3 max-h-10 overflow-hidden">{data.content?.slice(0, 140)}{(data.content?.length ?? 0) > 140 ? '…' : ''}</div>
+          </div>
+        )}
       </div>
 
       {/* Confirm / cancel */}
@@ -213,7 +312,7 @@ function ActionCard({ item, onConfirm, onCancel }: { item: ActionItem; onConfirm
           className="flex-1 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 flex items-center justify-center gap-1.5 transition-colors"
         >
           {status === 'executing'
-            ? <><Loader2 className="w-3 h-3 animate-spin" /> Creating…</>
+            ? <><Loader2 className="w-3 h-3 animate-spin" /> {['update_document','update_project','update_task'].includes(actionType) ? 'Updating…' : 'Creating…'}</>
             : confirmLabel
           }
         </button>
@@ -231,9 +330,14 @@ function ActionCard({ item, onConfirm, onCancel }: { item: ActionItem; onConfirm
 
 // ── Main component ───────────────────────────────────────────────────────────
 
-export default function PMChat({ onCreateDocument, onCreateProject, onCreateTask, onRefetch }: PMChatProps) {
+const CHAT_STORAGE_KEY = 'projex_pm_chat'
+
+export default function PMChat({ onCreateDocument, onCreateProject, onCreateTask, onUpdateDocument, onAddExpense, onUpdateProject, onUpdateTask, onRefetch }: PMChatProps) {
   const [open, setOpen] = useState(false)
-  const [items, setItems] = useState<ChatItem[]>([])
+  const [items, setItems] = useState<ChatItem[]>(() => {
+    if (typeof window === 'undefined') return []
+    try { const s = localStorage.getItem(CHAT_STORAGE_KEY); return s ? JSON.parse(s) : [] } catch { return [] }
+  })
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [streaming, setStreaming] = useState('')
@@ -251,6 +355,13 @@ export default function PMChat({ onCreateDocument, onCreateProject, onCreateTask
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 150)
   }, [open])
+
+  useEffect(() => {
+    try {
+      if (items.length === 0) localStorage.removeItem(CHAT_STORAGE_KEY)
+      else localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(items))
+    } catch {}
+  }, [items])
 
   const send = async () => {
     const text = input.trim()
@@ -348,14 +459,44 @@ export default function PMChat({ onCreateDocument, onCreateProject, onCreateTask
         result = await onCreateProject(action.data)
       } else if (action.actionType === 'create_task' && onCreateTask) {
         result = await onCreateTask(action.data)
+      } else if (action.actionType === 'update_document' && onUpdateDocument) {
+        const updates: any = { status: action.data.status }
+        if (action.data.datePaid) updates.datePaid = action.data.datePaid
+        result = await onUpdateDocument(action.data.documentId, updates)
+      } else if (action.actionType === 'log_expense' && onAddExpense) {
+        result = await onAddExpense(action.data.projectId, {
+          description: action.data.description,
+          amount: action.data.amount,
+          type: action.data.category || 'other',
+          date: action.data.date || new Date().toISOString().split('T')[0],
+          vendor: action.data.vendor,
+        })
+      } else if (action.actionType === 'update_project' && onUpdateProject) {
+        const updates: any = {}
+        if (action.data.status) updates.status = action.data.status
+        if (action.data.progress !== undefined) updates.progress = action.data.progress
+        result = await onUpdateProject(action.data.projectId, updates)
+      } else if (action.actionType === 'update_task' && onUpdateTask) {
+        const updates: any = {}
+        if (action.data.status) updates.status = action.data.status
+        if (action.data.priority) updates.priority = action.data.priority
+        result = await onUpdateTask(action.data.taskId, updates)
+      } else if (action.actionType === 'create_freeform' && onCreateDocument) {
+        result = await onCreateDocument(action.data)
       }
       onRefetch?.()
 
-      const label = action.actionType === 'create_document'
-        ? `${action.data.type.replace('-', ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())} created${result?.documentNumber ? ` · #${result.documentNumber}` : ''}`
-        : action.actionType === 'create_project'
-          ? `Project "${action.data.name}" created`
-          : `Task "${action.data.title}" added`
+      const labelMap: Record<string, string> = {
+        create_document: `${action.data.type.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())} created${result?.documentNumber ? ` · #${result.documentNumber}` : ''}`,
+        update_document: `${action.data.documentNumber || 'Document'} marked ${action.data.status}`,
+        create_project: `Project "${action.data.name}" created`,
+        update_project: `Project "${action.data.projectName}" updated`,
+        create_task: `Task "${action.data.title}" added`,
+        update_task: `Task "${action.data.taskTitle}" updated`,
+        log_expense: `${action.data.description} — ${fmt(action.data.amount)} logged`,
+        create_freeform: `"${action.data.title}" created${result?.documentNumber ? ` · #${result.documentNumber}` : ''}`,
+      }
+      const label = labelMap[action.actionType] ?? 'Done'
 
       setItems(prev => prev.map(it =>
         it.kind === 'action' && it.id === actionId ? { ...it, status: 'success', resultLabel: label } : it
@@ -405,7 +546,7 @@ export default function PMChat({ onCreateDocument, onCreateProject, onCreateTask
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">PM Assistant</div>
-            <div className="text-[10px] text-gray-400">Ask questions · Create documents & projects</div>
+            <div className="text-[10px] text-gray-400">Ask questions · Create & update records</div>
           </div>
           {items.length > 0 && (
             <button onClick={() => setItems([])} className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-[#222]">

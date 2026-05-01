@@ -132,6 +132,80 @@ const PM_TOOLS: Anthropic.Tool[] = [
       required: ['project_id', 'title'],
     },
   },
+  {
+    name: 'propose_update_document',
+    description: 'Propose updating a document status (paid, sent, approved, void). Use list_documents first to get the document ID.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        document_id: { type: 'string' },
+        document_number: { type: 'string', description: 'For display in the confirmation card' },
+        status: { type: 'string', enum: ['sent', 'viewed', 'approved', 'paid', 'void'] },
+        date_paid: { type: 'string', description: 'YYYY-MM-DD — required when marking as paid' },
+        client_name: { type: 'string', description: 'For display' },
+      },
+      required: ['document_id', 'status'],
+    },
+  },
+  {
+    name: 'propose_log_expense',
+    description: 'Propose logging an expense to a project. Use list_projects first to get the project_id.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'string' },
+        project_name: { type: 'string', description: 'For display' },
+        description: { type: 'string' },
+        amount: { type: 'number' },
+        category: { type: 'string', enum: ['materials', 'labor', 'equipment', 'subcontractor', 'other'] },
+        vendor: { type: 'string' },
+        date: { type: 'string', description: 'YYYY-MM-DD' },
+      },
+      required: ['project_id', 'description', 'amount'],
+    },
+  },
+  {
+    name: 'propose_update_project',
+    description: 'Propose updating a project status or progress percentage.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'string' },
+        project_name: { type: 'string', description: 'For display' },
+        status: { type: 'string', enum: ['active', 'completed', 'on-hold', 'cancelled'] },
+        progress: { type: 'number', description: '0–100 completion percentage' },
+      },
+      required: ['project_id'],
+    },
+  },
+  {
+    name: 'propose_update_task',
+    description: 'Propose updating a task status or priority. Use list_tasks first to get the task_id.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string' },
+        task_title: { type: 'string', description: 'For display' },
+        status: { type: 'string', enum: ['todo', 'in-progress', 'review', 'completed'] },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'] },
+      },
+      required: ['task_id', 'status'],
+    },
+  },
+  {
+    name: 'propose_create_freeform',
+    description: 'Generate a freeform business document: delay notice, lien waiver, subcontractor agreement, demand letter, or any correspondence. Write the full content yourself.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Document title, e.g. "Notice of Project Delay"' },
+        content: { type: 'string', description: 'Full document body — use \\n\\n for paragraphs, write professionally' },
+        project_id: { type: 'string' },
+        client_name: { type: 'string' },
+      },
+      required: ['title', 'content'],
+    },
+  },
 ]
 
 // ── Tool execution ──────────────────────────────────────────────────────────
@@ -305,6 +379,95 @@ async function runTool(
       return { status: 'pending_confirmation', summary }
     }
 
+    case 'propose_update_document': {
+      const statusLabel = input.status.charAt(0).toUpperCase() + input.status.slice(1)
+      const summary = `Mark ${input.document_number || 'document'} as ${statusLabel}${input.client_name ? ` — ${input.client_name}` : ''}`
+      send({
+        type: 'action', actionType: 'update_document',
+        id: `act_${Date.now()}`, summary,
+        data: {
+          documentId: input.document_id,
+          documentNumber: input.document_number || '',
+          clientName: input.client_name || '',
+          status: input.status,
+          datePaid: input.status === 'paid' ? (input.date_paid || today) : undefined,
+        },
+      })
+      return { status: 'pending_confirmation', summary }
+    }
+
+    case 'propose_log_expense': {
+      const summary = `Log ${fmt(input.amount)} expense — ${input.description}${input.vendor ? ` · ${input.vendor}` : ''}${input.project_name ? ` → ${input.project_name}` : ''}`
+      send({
+        type: 'action', actionType: 'log_expense',
+        id: `act_${Date.now()}`, summary,
+        data: {
+          projectId: input.project_id,
+          projectName: input.project_name || '',
+          description: input.description,
+          amount: input.amount,
+          category: input.category || 'other',
+          vendor: input.vendor || '',
+          date: input.date || today,
+        },
+      })
+      return { status: 'pending_confirmation', summary }
+    }
+
+    case 'propose_update_project': {
+      const changes: string[] = []
+      if (input.status) changes.push(`status → ${input.status}`)
+      if (input.progress !== undefined) changes.push(`progress → ${input.progress}%`)
+      const summary = `Update ${input.project_name || 'project'}: ${changes.join(', ')}`
+      send({
+        type: 'action', actionType: 'update_project',
+        id: `act_${Date.now()}`, summary,
+        data: {
+          projectId: input.project_id,
+          projectName: input.project_name || '',
+          status: input.status,
+          progress: input.progress,
+        },
+      })
+      return { status: 'pending_confirmation', summary }
+    }
+
+    case 'propose_update_task': {
+      const summary = `Update task "${input.task_title || input.task_id}": ${input.status}${input.priority ? ` · ${input.priority}` : ''}`
+      send({
+        type: 'action', actionType: 'update_task',
+        id: `act_${Date.now()}`, summary,
+        data: {
+          taskId: input.task_id,
+          taskTitle: input.task_title || '',
+          status: input.status,
+          priority: input.priority,
+        },
+      })
+      return { status: 'pending_confirmation', summary }
+    }
+
+    case 'propose_create_freeform': {
+      const summary = `New document: "${input.title}"${input.client_name ? ` for ${input.client_name}` : ''}`
+      send({
+        type: 'action', actionType: 'create_freeform',
+        id: `act_${Date.now()}`, summary,
+        data: {
+          title: input.title,
+          content: input.content,
+          projectId: input.project_id || null,
+          clientName: input.client_name || '',
+          type: 'proposal',
+          notes: JSON.stringify({ freeform: true, title: input.title, content: input.content }),
+          status: 'draft',
+          dateIssued: today,
+          lineItems: [],
+          subtotal: 0, taxTotal: 0, total: 0,
+        },
+      })
+      return { status: 'pending_confirmation', summary }
+    }
+
     default:
       return { error: `Unknown tool: ${name}` }
   }
@@ -329,9 +492,14 @@ ${snapshot}
 
 Capabilities:
 - Query and answer questions about projects, finances, invoices, tasks
-- Create estimates, invoices, change orders, purchase orders → use propose_create_document
-- Create new projects → use propose_create_project
-- Add tasks to projects → use propose_create_task
+- Create estimates, invoices, change orders, purchase orders → propose_create_document
+- Create new projects → propose_create_project
+- Add tasks → propose_create_task
+- Mark invoices/estimates paid, sent, approved, void → propose_update_document (get ID from list_documents first)
+- Log expenses to projects → propose_log_expense
+- Update project status or progress → propose_update_project
+- Update task status → propose_update_task
+- Write freeform documents (delay notices, lien waivers, agreements, letters) → propose_create_freeform
 
 Rules:
 - When creating a document for a project, always call list_projects first if you don't already have the project_id
