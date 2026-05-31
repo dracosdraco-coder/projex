@@ -31,11 +31,15 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname
 
-  // Public routes that don't require auth
-  const publicRoutes = ['/login', '/signup', '/']
+  // Exact public routes
+  const publicRoutes = ['/', '/login', '/signup', '/solutions', '/references', '/about', '/docs', '/blog', '/privacy', '/terms', '/changelog']
+  // Public route prefixes (e.g. /portal/abc, /blog/slug, /api/*)
+  const publicPrefixes = ['/portal/', '/blog/', '/api/']
+
+  const isPublic = publicRoutes.includes(path) || publicPrefixes.some(p => path.startsWith(p))
 
   // If not authenticated and trying to access protected route, redirect to login
-  if (!user && !publicRoutes.includes(path)) {
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
