@@ -33,8 +33,8 @@ export async function updateSession(request: NextRequest) {
 
   // Exact public routes
   const publicRoutes = ['/', '/login', '/signup', '/solutions', '/references', '/about', '/docs', '/blog', '/privacy', '/terms', '/changelog']
-  // Public route prefixes (e.g. /portal/abc, /blog/slug, /api/*)
-  const publicPrefixes = ['/portal/', '/blog/', '/api/']
+  // Public route prefixes
+  const publicPrefixes = ['/portal/', '/blog/', '/api/', '/auth/']
 
   const isPublic = publicRoutes.includes(path) || publicPrefixes.some(p => path.startsWith(p))
 
