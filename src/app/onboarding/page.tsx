@@ -30,7 +30,38 @@ const FEATURES = [
   { id: 'documents', label: 'Documents & Forms', icon: '📄' },
 ]
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 5
+
+const FIRST_ACTIONS = [
+  {
+    id: 'project',
+    icon: '🏗️',
+    title: 'Create your first project',
+    desc: 'Add a job, set a budget, assign phases.',
+    href: '/access?open=projects',
+  },
+  {
+    id: 'estimate',
+    icon: '📋',
+    title: 'Send an estimate',
+    desc: 'Build a proposal and send it to a client.',
+    href: '/access?open=estimating',
+  },
+  {
+    id: 'calendar',
+    icon: '📅',
+    title: 'Book an appointment',
+    desc: 'Schedule a site visit or client meeting.',
+    href: '/access?open=calendar',
+  },
+  {
+    id: 'team',
+    icon: '👥',
+    title: 'Invite your team',
+    desc: 'Add crew members and assign roles.',
+    href: '/access?open=team',
+  },
+]
 
 export default function OnboardingPage() {
   const { user } = useAuth()
@@ -97,7 +128,7 @@ export default function OnboardingPage() {
       // 4. Link org to profile
       await supabase.from('profiles').update({ org_id: org.id }).eq('id', user.id)
 
-      window.location.href = '/access'
+      setStep(5)
     } catch (err: any) {
       setError(err.message || 'Setup failed. Please try again.')
       setSaving(false)
@@ -280,6 +311,41 @@ export default function OnboardingPage() {
             </div>
           )}
 
+          {/* Step 5: Ready — first actions */}
+          {step === 5 && (
+            <div>
+              <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-widest mb-3">You're all set</p>
+              <h2 className="text-[28px] font-bold text-zinc-900 tracking-tight mb-1.5">
+                Welcome to Projex{firstName ? `, ${firstName}` : ''}. 👋
+              </h2>
+              <p className="text-zinc-400 text-[14px] mb-10">
+                Your workspace is ready. Where do you want to start?
+              </p>
+              <div className="space-y-3">
+                {FIRST_ACTIONS.map(action => (
+                  <a
+                    key={action.id}
+                    href={action.href}
+                    className="flex items-center gap-4 px-5 py-4 bg-zinc-50 hover:bg-zinc-100 rounded-2xl transition-all group border border-transparent hover:border-zinc-200"
+                  >
+                    <span className="text-2xl leading-none">{action.icon}</span>
+                    <div className="flex-1">
+                      <p className="text-[14px] font-semibold text-zinc-900">{action.title}</p>
+                      <p className="text-[12px] text-zinc-400 mt-0.5">{action.desc}</p>
+                    </div>
+                    <svg className="w-4 h-4 text-zinc-300 group-hover:text-zinc-600 transition-colors shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+                  </a>
+                ))}
+              </div>
+              <button
+                onClick={() => { window.location.href = '/access' }}
+                className="w-full mt-6 py-3 text-[13px] text-zinc-400 hover:text-zinc-700 transition-colors"
+              >
+                Go to my workspace →
+              </button>
+            </div>
+          )}
+
           {/* Error */}
           {error && (
             <div className="mt-4 px-4 py-3 bg-red-50 rounded-xl text-[12px] text-red-700 border border-red-100">
@@ -287,8 +353,8 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* CTA */}
-          <div className="mt-10 flex items-center gap-4">
+          {/* CTA — hidden on step 5 which has its own action links */}
+          {step < 5 && <div className="mt-10 flex items-center gap-4">
             {step > 1 && (
               <button
                 onClick={() => setStep(s => s - 1)}
@@ -307,13 +373,13 @@ export default function OnboardingPage() {
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Setting up your workspace...
                 </span>
-              ) : step === TOTAL_STEPS ? (
-                'Enter Projex →'
+              ) : step === 4 ? (
+                'Finish setup →'
               ) : (
                 'Continue →'
               )}
             </button>
-          </div>
+          </div>}
         </div>
       </div>
     </div>

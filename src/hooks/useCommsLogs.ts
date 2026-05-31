@@ -31,7 +31,7 @@ export function useCommsLogs(userId: string | undefined, orgId?: string | null) 
         .order('created_at', { ascending: false })
         .limit(200)
 
-      if (error) throw error
+      if (error) return []  // table may not exist yet
 
       const mapped: CommsLog[] = (data || []).map((l: any) => ({
         id: l.id,
