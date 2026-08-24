@@ -106,6 +106,25 @@ export function useData() {
   const uploadMessageAttachment = async (messageId: string, file: File) =>
     team.uploadMessageAttachment(messageId, file, loadData)
 
+  const assignTeamMemberToProject = useCallback(async (projectId: string, memberId: string, roleInProject?: string) => {
+    await team.assignTeamMemberToProject(projectId, memberId, roleInProject)
+    const member = team.teamMembers.find(m => m.id === memberId)
+    if (!member) return
+    projects.setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p
+      if (p.team?.some(t => t.id === memberId)) return p
+      return { ...p, team: [...(p.team || []), member] }
+    }))
+  }, [team.assignTeamMemberToProject, team.teamMembers])
+
+  const removeTeamMemberFromProject = useCallback(async (projectId: string, memberId: string) => {
+    await team.removeTeamMemberFromProject(projectId, memberId)
+    projects.setProjects(prev => prev.map(p => {
+      if (p.id !== projectId) return p
+      return { ...p, team: (p.team || []).filter(t => t.id !== memberId) }
+    }))
+  }, [team.removeTeamMemberFromProject])
+
   // Timeline helpers (local state only, no DB)
   const updateTimeline = useCallback(async (projectId: string, event: Omit<TimelineEvent, 'id' | 'createdAt'>) => {
     projects.setProjects(prev => prev.map(p => {
@@ -171,8 +190,8 @@ export function useData() {
     createTeamMember: team.createTeamMember,
     updateTeamMember: team.updateTeamMember,
     deleteTeamMember: team.deleteTeamMember,
-    assignTeamMemberToProject: team.assignTeamMemberToProject,
-    removeTeamMemberFromProject: team.removeTeamMemberFromProject,
+    assignTeamMemberToProject,
+    removeTeamMemberFromProject,
 
     // Messages
     createMessage: team.createMessage,

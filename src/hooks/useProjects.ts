@@ -62,6 +62,20 @@ export function useProjects(userId: string | undefined, orgId?: string | null) {
             }))
         })
       }
+
+      // Load project <-> team member assignments
+      const { data: teamLinksData, error: teamLinksError } = await supabase
+        .from('project_team')
+        .select('project_id, team_members(*)')
+        .in('project_id', projectIds)
+
+      if (!teamLinksError && teamLinksData) {
+        transformed.forEach(project => {
+          project.team = teamLinksData
+            .filter((link: any) => link.project_id === project.id && link.team_members)
+            .map((link: any) => link.team_members as TeamMember)
+        })
+      }
     }
 
     setProjects(transformed as Project[])
