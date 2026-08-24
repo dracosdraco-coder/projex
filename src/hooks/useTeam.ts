@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TeamMember } from '@/types'
 import { Message, MessageAttachment } from '@/types/data'
@@ -9,13 +9,19 @@ export function useTeam(userId: string | undefined, orgId?: string | null) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [messages, setMessages] = useState<Message[]>([])
 
+  // orgId loads asynchronously after mount — useCallback deps below are keyed
+  // on userId only, so reads go through this ref to always see the latest
+  // value instead of closing over the initial (null) orgId.
+  const orgIdRef = useRef(orgId)
+  useEffect(() => { orgIdRef.current = orgId }, [orgId])
+
   const loadTeamMembers = useCallback(async () => {
     if (!userId) return []
 
     const { data: teamData } = await supabase
       .from('team_members')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
 
     const transformed = (teamData || []) as TeamMember[]
     setTeamMembers(transformed)
@@ -28,7 +34,7 @@ export function useTeam(userId: string | undefined, orgId?: string | null) {
     const { data: messagesData } = await supabase
       .from('messages')
       .select(`*, message_attachments (id, file_name, storage_path, file_type, file_size, uploaded_at)`)
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('created_at', { ascending: false })
 
     const transformed: Message[] = (messagesData || []).map((m: any) => {
@@ -78,7 +84,7 @@ export function useTeam(userId: string | undefined, orgId?: string | null) {
 
     const { data: newMember, error } = await supabase
       .from('team_members')
-      .insert([{ user_id: userId, org_id: orgId || undefined, name: data.name, email: data.email, phone: data.phone, role: data.role }])
+      .insert([{ user_id: userId, org_id: orgIdRef.current || undefined, name: data.name, email: data.email, phone: data.phone, role: data.role }])
       .select()
       .single()
 
@@ -150,7 +156,7 @@ export function useTeam(userId: string | undefined, orgId?: string | null) {
       .from('messages')
       .insert([{
         user_id: userId,
-        org_id: orgId || undefined,
+        org_id: orgIdRef.current || undefined,
         project_id: data.projectId,
         branch_id: data.branchId,
         sender_name: user?.email || 'Unknown User',

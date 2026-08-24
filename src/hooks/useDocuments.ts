@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { FormDocument, Meeting, Branch } from '@/types'
 import {
@@ -17,6 +17,12 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>([])
   const [generatedDocuments, setGeneratedDocuments] = useState<GeneratedDocument[]>([])
 
+  // orgId loads asynchronously after mount — useCallback deps below are keyed
+  // on userId only, so reads go through this ref to always see the latest
+  // value instead of closing over the initial (null) orgId.
+  const orgIdRef = useRef(orgId)
+  useEffect(() => { orgIdRef.current = orgId }, [orgId])
+
   // ==================== LOAD ====================
 
   const loadStorageDocuments = useCallback(async () => {
@@ -24,7 +30,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data: docsData, error } = await supabase
       .from('documents')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('uploaded_at', { ascending: false })
 
     if (error) return
@@ -44,7 +50,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data, error } = await supabase
       .from('meetings')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('start_time', { ascending: false })
 
     if (error) throw error
@@ -56,7 +62,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data, error } = await supabase
       .from('branches')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('created_at', { ascending: false })
 
     if (error) throw error
@@ -68,7 +74,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data } = await supabase
       .from('line_item_templates')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .eq('is_active', true)
       .order('category', { ascending: true })
       .order('name', { ascending: true })
@@ -87,7 +93,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data } = await supabase
       .from('form_templates')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
 
@@ -108,7 +114,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data } = await supabase
       .from('generated_documents')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('date_issued', { ascending: false })
 
     const transformed: GeneratedDocument[] = (data || []).map((doc: any) => ({
@@ -148,7 +154,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data: docRecord, error: dbError } = await supabase
       .from('documents')
       .insert([{
-        user_id: user.id, project_id: projectId, name: file.name, type,
+        user_id: user.id, org_id: orgIdRef.current || undefined, project_id: projectId, name: file.name, type,
         storage_path: storagePath, file_size: file.size, mime_type: file.type,
       }])
       .select()
@@ -212,7 +218,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data: newMeeting, error } = await supabase
       .from('meetings')
       .insert([{
-        user_id: userId, org_id: orgId || undefined, project_id: data.projectId, title: data.title,
+        user_id: userId, org_id: orgIdRef.current || undefined, project_id: data.projectId, title: data.title,
         start_time: `${data.date}T${data.time}`, end_time: `${data.date}T${data.time}`,
         attendees: data.attendees,
       }])
@@ -239,7 +245,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
 
     const { data: newDoc, error } = await supabase
       .from('form_documents')
-      .insert([{ user_id: userId, org_id: orgId || undefined, project_id: data.projectId, title: data.title, type: data.type, status: data.status }])
+      .insert([{ user_id: userId, org_id: orgIdRef.current || undefined, project_id: data.projectId, title: data.title, type: data.type, status: data.status }])
       .select()
       .single()
 
@@ -255,7 +261,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
 
     const { data: newBranch, error } = await supabase
       .from('branches')
-      .insert([{ user_id: userId, org_id: orgId || undefined, name: data.name, address: data.location }])
+      .insert([{ user_id: userId, org_id: orgIdRef.current || undefined, name: data.name, address: data.location }])
       .select()
       .single()
 
@@ -290,7 +296,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data: newTemplate, error } = await supabase
       .from('line_item_templates')
       .insert({
-        user_id: userId, org_id: orgId || undefined, category: data.category, name: data.name, description: data.description,
+        user_id: userId, org_id: orgIdRef.current || undefined, category: data.category, name: data.name, description: data.description,
         unit: data.unit, cost: data.cost, price: data.price, tax_rate: data.taxRate || 0,
         is_taxable: data.isTaxable ?? true, notes: data.notes, is_active: true,
       })
@@ -351,7 +357,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data: newTemplate, error } = await supabase
       .from('form_templates')
       .insert({
-        user_id: userId, org_id: orgId || undefined, type: data.type, name: data.name,
+        user_id: userId, org_id: orgIdRef.current || undefined, type: data.type, name: data.name,
         company_name: data.companyName, company_logo_url: data.companyLogoUrl,
         company_address: data.companyAddress, company_phone: data.companyPhone,
         company_email: data.companyEmail, company_website: data.companyWebsite,
@@ -419,7 +425,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
   const getNextDocumentNumber = useCallback(async (type: string, prefix: string = '') => {
     if (!userId) return null
     const { data, error } = await supabase.rpc('get_next_document_number', {
-      p_user_id: userId, org_id: orgId || undefined, p_document_type: type, p_prefix: prefix || type.toUpperCase().substring(0, 3),
+      p_user_id: userId, org_id: orgIdRef.current || undefined, p_document_type: type, p_prefix: prefix || type.toUpperCase().substring(0, 3),
     })
     if (error) return null
     return data
@@ -434,7 +440,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data: newDoc, error } = await supabase
       .from('generated_documents')
       .insert({
-        user_id: userId, org_id: orgId || undefined, project_id: data.projectId, type: data.type,
+        user_id: userId, org_id: orgIdRef.current || undefined, project_id: data.projectId, type: data.type,
         document_number: documentNumber, status: data.status || 'draft',
         date_issued: data.dateIssued || new Date().toISOString().split('T')[0],
         date_due: data.dateDue, company_name: data.companyName, company_logo_url: data.companyLogoUrl,

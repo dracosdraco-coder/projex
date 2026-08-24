@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Project, Expense, TeamMember, TimelineEvent } from '@/types'
 import { ProjectFormData, CalendarEvent } from '@/types/data'
@@ -8,13 +8,19 @@ import { ProjectFormData, CalendarEvent } from '@/types/data'
 export function useProjects(userId: string | undefined, orgId?: string | null) {
   const [projects, setProjects] = useState<Project[]>([])
 
+  // orgId loads asynchronously after mount — useCallback deps below are keyed
+  // on userId only, so reads go through this ref to always see the latest
+  // value instead of closing over the initial (null) orgId.
+  const orgIdRef = useRef(orgId)
+  useEffect(() => { orgIdRef.current = orgId }, [orgId])
+
   const loadProjects = useCallback(async () => {
     if (!userId) return []
 
     const { data: projectsData, error: projectsError } = await supabase
       .from('projects')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('created_at', { ascending: false })
 
     if (projectsError) throw projectsError
@@ -160,7 +166,7 @@ export function useProjects(userId: string | undefined, orgId?: string | null) {
     const { data: newProject, error } = await supabase
       .from('projects')
       .insert([{
-        user_id: userId, org_id: orgId || undefined,
+        user_id: userId, org_id: orgIdRef.current || undefined,
         name: data.name,
         description: data.description,
         client_name: data.client,
@@ -254,7 +260,7 @@ export function useProjects(userId: string | undefined, orgId?: string | null) {
       .from('expenses')
       .insert([{
         project_id: projectId,
-        user_id: userId, org_id: orgId || undefined,
+        user_id: userId, org_id: orgIdRef.current || undefined,
         category: expense.type,
         description: expense.description,
         amount: expense.amount,

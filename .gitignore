@@ -5,6 +5,9 @@
 
 # Testing
 /coverage
+/test-results
+/playwright-report
+/playwright/.cache
 
 # Next.js
 /.next/
@@ -33,3 +36,6 @@ yarn-error.log*
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Supabase CLI local cache/credentials
+supabase/.temp

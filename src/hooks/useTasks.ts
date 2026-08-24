@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { TeamMember } from '@/types'
 import { Task, Phase } from '@/types/data'
@@ -9,13 +9,19 @@ export function useTasks(userId: string | undefined, orgId?: string | null) {
   const [tasks, setTasks] = useState<Task[]>([])
   const [phases, setPhases] = useState<Phase[]>([])
 
+  // orgId loads asynchronously after mount — useCallback deps below are keyed
+  // on userId only, so reads go through this ref to always see the latest
+  // value instead of closing over the initial (null) orgId.
+  const orgIdRef = useRef(orgId)
+  useEffect(() => { orgIdRef.current = orgId }, [orgId])
+
   const loadTasks = useCallback(async (transformedProjects: any[], transformedTeamMembers: TeamMember[]) => {
     if (!userId) return { tasks: [], phases: [] }
 
     const { data: tasksData } = await supabase
       .from('tasks')
       .select(`*, task_comments (id, commenter_name, content, created_at)`)
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('created_at', { ascending: false })
 
     const transformedTasks: Task[] = (tasksData || []).map((t: any) => {
@@ -51,7 +57,7 @@ export function useTasks(userId: string | undefined, orgId?: string | null) {
     const { data: phasesData } = await supabase
       .from('phases')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('order', { ascending: true })
 
     const transformedPhases: Phase[] = (phasesData || []).map((p: any) => {
@@ -113,7 +119,7 @@ export function useTasks(userId: string | undefined, orgId?: string | null) {
     const { data: newTask, error } = await supabase
       .from('tasks')
       .insert([{
-        user_id: userId, org_id: orgId || undefined,
+        user_id: userId, org_id: orgIdRef.current || undefined,
         project_id: data.projectId,
         phase_id: data.phaseId || null,
         title: data.title,
@@ -150,7 +156,7 @@ export function useTasks(userId: string | undefined, orgId?: string | null) {
 
     if (updates.status && currentTask && updates.status !== currentTask.status) {
       await supabase.from('messages').insert([{
-        user_id: userId, org_id: orgId || undefined,
+        user_id: userId, org_id: orgIdRef.current || undefined,
         project_id: 'self-chat',
         sender_name: 'System',
         content: `📋 Task "${currentTask.title}" in ${currentTask.projectName || 'Unknown Project'} changed from ${currentTask.status} to ${updates.status}`,
@@ -196,7 +202,7 @@ export function useTasks(userId: string | undefined, orgId?: string | null) {
     const { data: newPhase, error } = await supabase
       .from('phases')
       .insert([{
-        user_id: userId, org_id: orgId || undefined,
+        user_id: userId, org_id: orgIdRef.current || undefined,
         project_id: data.projectId,
         name: data.name,
         description: data.description,

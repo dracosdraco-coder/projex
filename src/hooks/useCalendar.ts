@@ -1,11 +1,17 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { CalendarEvent } from '@/types/data'
 
 export function useCalendar(userId: string | undefined, orgId?: string | null) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
+
+  // orgId loads asynchronously after mount — useCallback deps below are keyed
+  // on userId only, so reads go through this ref to always see the latest
+  // value instead of closing over the initial (null) orgId.
+  const orgIdRef = useRef(orgId)
+  useEffect(() => { orgIdRef.current = orgId }, [orgId])
 
   const loadEvents = useCallback(async () => {
     if (!userId) return
@@ -13,7 +19,7 @@ export function useCalendar(userId: string | undefined, orgId?: string | null) {
     const { data: eventsData, error } = await supabase
       .from('events')
       .select('*')
-      .eq(orgId ? 'org_id' : 'user_id', orgId || userId!)
+      .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('start_time', { ascending: true })
 
     if (error) throw error
@@ -48,6 +54,7 @@ export function useCalendar(userId: string | undefined, orgId?: string | null) {
       .from('events')
       .insert([{
         user_id: user.id,
+        org_id: orgIdRef.current || undefined,
         title: eventData.title,
         description: eventData.description,
         location: eventData.location,
