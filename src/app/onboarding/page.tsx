@@ -100,7 +100,35 @@ export default function OnboardingPage() {
         company: company.trim(),
       }).eq('id', user.id)
 
-      // 2. Create organization
+      // 2. If this user was invited to an existing org, join it instead of
+      // creating a new one — otherwise invited team members end up siloed
+      // in their own org and never see shared projects/calendar/dashboard.
+      const normalizedEmail = user.email!.trim().toLowerCase()
+      const { data: pendingMembership } = await supabase
+        .from('org_members')
+        .select('id, org_id')
+        .eq('email', normalizedEmail)
+        .eq('status', 'pending')
+        .limit(1)
+        .single()
+
+      if (pendingMembership?.org_id) {
+        await supabase.from('org_members')
+          .update({
+            user_id: user.id,
+            name: `${firstName} ${lastName}`.trim(),
+            status: 'active',
+            joined_at: new Date().toISOString(),
+          })
+          .eq('id', pendingMembership.id)
+
+        await supabase.from('profiles').update({ org_id: pendingMembership.org_id }).eq('id', user.id)
+
+        setStep(5)
+        return
+      }
+
+      // 3. Otherwise create a new organization
       const { data: org, error: orgError } = await supabase
         .from('organizations')
         .insert({
@@ -114,7 +142,7 @@ export default function OnboardingPage() {
 
       if (orgError) throw orgError
 
-      // 3. Add owner as org member
+      // 4. Add owner as org member
       await supabase.from('org_members').insert({
         org_id: org.id,
         user_id: user.id,
@@ -125,7 +153,7 @@ export default function OnboardingPage() {
         joined_at: new Date().toISOString(),
       })
 
-      // 4. Link org to profile
+      // 5. Link org to profile
       await supabase.from('profiles').update({ org_id: org.id }).eq('id', user.id)
 
       setStep(5)
