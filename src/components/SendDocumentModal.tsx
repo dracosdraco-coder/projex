@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X, Send, Mail, Eye, Paperclip } from 'lucide-react'
+import { formatLocalDate } from '@/lib/utils'
 
 interface SendDocumentModalProps {
   document: any
@@ -265,7 +266,7 @@ function getDefaultMessage(document: any): string {
 Please find attached ${type} ${document.documentNumber} for your review.
 
 ${document.type === 'estimate' ? 'This estimate is valid for 30 days. Please let us know if you have any questions or would like to proceed.' : ''}
-${document.type === 'invoice' ? `Payment is due by ${new Date(document.dateDue).toLocaleDateString()}. Please remit payment at your earliest convenience.` : ''}
+${document.type === 'invoice' ? `Payment is due by ${formatLocalDate(document.dateDue)}. Please remit payment at your earliest convenience.` : ''}
 ${document.type === 'work_order' ? 'This work order details the scope of work to be performed. Please review and confirm.' : ''}
 
 If you have any questions, please don't hesitate to reach out.

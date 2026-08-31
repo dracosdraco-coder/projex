@@ -172,7 +172,7 @@ export default function TeamContent({
                       <h3 className="font-semibold text-sm text-gray-900 dark:text-gray-100 truncate">{m.name}</h3>
                       <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium mt-0.5 ${role.color}`}>{role.label}</span>
                     </div>
-                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-0.5">
                       <button onClick={() => { setEditing(m); setForm({ name: m.name, email: m.email || '', phone: m.phone || '', role: m.role }); setShowAdd(true) }}
                         className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Edit className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { if (confirm(`Remove ${m.name}?`)) onDeleteMember(m.id) }}

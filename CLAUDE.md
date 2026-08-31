@@ -112,6 +112,50 @@ npm run dev                   # http://localhost:3000
 - The landing page and the app share the same Next.js app but have completely separate UI stacks (landing is dark/zinc, app uses a theme toggle)
 - Stripe price IDs are **never** hardcoded — always read from env vars at runtime
 
+## Mobile integrity
+
+`AccessClient.tsx` renders two completely different layouts by viewport (`isMobile`, <768px):
+the spatial window-manager for desktop, and `MobileLayout.tsx` (iOS-style tab bar + app grid) for
+mobile — most card content components (`src/components/cards/*`) are shared between both and were
+originally built desktop-only, so they need explicit checking any time they change. Concrete
+failure patterns found and fixed across a full mobile pass (see git history) — check for these
+whenever touching a card, modal, or form:
+
+- **Non-wrapping toolbars.** A filter/toolbar row of search + selects + a view toggle in a plain
+  `flex` row clips on a ~390px screen. Use `flex flex-wrap` and let the search input take a full
+  row on mobile (`w-full sm:w-auto`).
+- **Fixed-pixel CSS grid columns** (e.g. a line-item table `grid-cols-[1fr_50px_70px_...]`) don't
+  fit a phone width at all. Wrap in `overflow-x-auto` with a `min-w-[...]` on the grid, or restructure
+  for mobile.
+- **Hover-only actions are unreachable on touch.** Never gate a delete/edit button behind
+  `opacity-0 group-hover:opacity-100` — touch devices have no hover state, so the control is
+  effectively deleted. Show it plainly, or find another affordance.
+- **Two-pane split layouts** (e.g. a list + detail side-by-side) need `flex-col sm:flex-row` with
+  each pane `w-full sm:w-1/2`, not a bare `flex` row — a fixed 50/50 split is unusable at 390px.
+- Test new UI at a phone width (~390px), not just resizing a desktop browser — several bugs here
+  only showed up in an actual mobile viewport/user-agent context (e.g. native `<input type=date>`
+  rendering, `env(safe-area-inset-*)`).
+
+## Data-integrity conventions (learned the hard way)
+
+- **Date-only values must go through `parseLocalDate`/`formatLocalDate` in `src/lib/utils.ts`,
+  never raw `new Date(dateOnlyString).toLocaleDateString()`.** A bare `"YYYY-MM-DD"` string parses
+  as UTC midnight per spec; rendering it in any US timezone rolls the displayed date back a day.
+  This bit phases, projects, meetings, invoices — assume it'll bite any new date-only field too.
+- **When building a timestamp from separate date + time inputs for a `timestamptz` column,**
+  construct a local `Date` and send `.toISOString()` — never send a naive `` `${date}T${time}` ``
+  string directly; Postgres/PostgREST will interpret it as UTC and the time will be off by the
+  server's UTC offset (this broke meeting times by 4-5 hours before it was fixed).
+- **After an insert, map the returned row through the same transform the initial fetch uses before
+  putting it in local state — never cast the raw row directly to the app type.** DB columns are
+  frequently named differently from the camelCase app field (`category` vs `type`, `start_time`
+  vs `date`/`time`, `budget` vs `contract_amount`); casting the raw insert result hides the
+  mismatch because totals/sums still work while filtered/derived fields silently show empty or
+  zero until the next full page reload re-triggers the (correct) fetch-side mapping.
+- **Never let a Supabase error be swallowed into `return null`.** `console.error` it at minimum —
+  a bare `if (error) return null` turned a specific, fixable RPC signature mismatch into an opaque
+  "check required fields" toast with no path to diagnosing it.
+
 ## Current status (as of May 2026)
 
 - Auth, DB, billing, and core features are working (beta)

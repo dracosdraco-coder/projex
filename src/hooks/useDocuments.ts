@@ -8,6 +8,20 @@ import {
   LineItemTemplate, FormTemplate, GeneratedDocument,
 } from '@/types/data'
 
+// The meetings table only has start_time/end_time timestamptz columns — there is no date/time
+// column — but the Meeting type (and MeetingsContent/ScheduleContent) expect separate local
+// `date` ("YYYY-MM-DD") and `time` ("HH:MM") fields. Every meeting was silently missing both
+// (read as undefined, rendered as "Not set") because the raw row was cast straight to Meeting
+// without deriving them. This splits start_time into those two fields.
+function splitMeetingTime(startTime: string): { date: string; time: string } {
+  const d = new Date(startTime)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  }
+}
+
 export function useDocuments(userId: string | undefined, orgId?: string | null) {
   const [documents, setDocuments] = useState<FormDocument[]>([])
   const [storageDocuments, setStorageDocuments] = useState<StorageDocument[]>([])
@@ -54,7 +68,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
       .order('start_time', { ascending: false })
 
     if (error) throw error
-    setMeetings((data || []).map((m: any) => ({ ...m, attendees: m.attendees || [] })) as Meeting[])
+    setMeetings((data || []).map((m: any) => ({ ...m, ...splitMeetingTime(m.start_time), attendees: m.attendees || [] })) as Meeting[])
   }, [userId])
 
   const loadBranches = useCallback(async () => {
@@ -215,19 +229,26 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
   const createMeeting = useCallback(async (data: MeetingFormData) => {
     if (!userId) throw new Error('Not authenticated')
 
+    // `${date}T${time}` has no timezone marker, so Postgres treats it as UTC when writing to a
+    // timestamptz column — a meeting entered for 10:00 local came back as 6:00 (a 4-5hr shift for
+    // US timezones). Parsing it as a local Date first and sending toISOString() records the
+    // correct UTC instant for the wall-clock time the user actually picked.
+    const startTimeIso = new Date(`${data.date}T${data.time}`).toISOString()
+
     const { data: newMeeting, error } = await supabase
       .from('meetings')
       .insert([{
         user_id: userId, org_id: orgIdRef.current || undefined, project_id: data.projectId, title: data.title,
-        start_time: `${data.date}T${data.time}`, end_time: `${data.date}T${data.time}`,
+        start_time: startTimeIso, end_time: startTimeIso,
         attendees: data.attendees,
       }])
       .select()
       .single()
 
     if (error) throw error
-    setMeetings(prev => [newMeeting as Meeting, ...prev])
-    return newMeeting as Meeting
+    const mappedMeeting = { ...newMeeting, ...splitMeetingTime(newMeeting.start_time), attendees: newMeeting.attendees || [] } as Meeting
+    setMeetings(prev => [mappedMeeting, ...prev])
+    return mappedMeeting
   }, [userId])
 
   const deleteMeeting = useCallback(async (id: string) => {
@@ -424,10 +445,14 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
 
   const getNextDocumentNumber = useCallback(async (type: string, prefix: string = '') => {
     if (!userId) return null
+    // The deployed get_next_document_number() function takes only these three params — it has
+    // no org_id parameter. Passing one (a leftover from the broader org-scoping pass) makes
+    // PostgREST unable to find a matching overload (PGRST202), which failed silently since the
+    // error was swallowed below, and broke saving every new estimate/invoice/proposal.
     const { data, error } = await supabase.rpc('get_next_document_number', {
-      p_user_id: userId, org_id: orgIdRef.current || undefined, p_document_type: type, p_prefix: prefix || type.toUpperCase().substring(0, 3),
+      p_user_id: userId, p_document_type: type, p_prefix: prefix || type.toUpperCase().substring(0, 3),
     })
-    if (error) return null
+    if (error) { console.error('getNextDocumentNumber failed:', error); return null }
     return data
   }, [userId])
 
@@ -457,7 +482,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
       .select()
       .single()
 
-    if (error) return null
+    if (error) { console.error('createGeneratedDocument failed:', error); return null }
 
     const transformed: GeneratedDocument = {
       id: newDoc.id, userId: newDoc.user_id, projectId: newDoc.project_id, type: newDoc.type,

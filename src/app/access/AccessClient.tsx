@@ -1247,6 +1247,7 @@ case 'maps':
               setDocumentType('estimate')
               setShowDocumentEditor(true)
             }}
+            onDeleteEstimate={deleteGeneratedDocument}
           />
         )
 
@@ -1259,6 +1260,7 @@ case 'maps':
               setDocumentType('invoice')
               setShowDocumentEditor(true)
             }}
+            onDeleteInvoice={deleteGeneratedDocument}
           />
         )
 
@@ -1519,6 +1521,10 @@ case 'maps':
           onMouseDown={(e) => {
             handleCanvasMouseDown(e)
           }}
+          onDoubleClick={(e) => {
+            if (e.target !== e.currentTarget) return
+            fitToContent(openCards.map((c: any) => ({ x: c.position.x, y: c.position.y, w: c.size.width, h: c.size.height })))
+          }}
           onMouseMove={(e) => {
             if (isPanning) {
               onPanMove(e)
@@ -1569,6 +1575,7 @@ case 'maps':
   onMouseDown={handleMouseDown}
   onResizeMouseDown={handleResizeMouseDown}
   onClick={() => setActiveCard(card.id)}
+  canvasMode={canvasMode}
 >
 {renderCardContent(card.type || card.id || 'dashboard')}
 
@@ -1884,9 +1891,13 @@ onClose={() => {
           />
         )}
 
-      {/* Onboarding */}
-      <Onboarding visible={showOnboarding} onComplete={completeOnboarding} />
-      <HelpButton onClick={() => setShowOnboarding(true)} />
+      {/* Onboarding — desktop-canvas only; its tips (drag/resize windows, trackpad zoom) don't apply on mobile */}
+      {!isMobile && (
+        <>
+          <Onboarding visible={showOnboarding} onComplete={completeOnboarding} />
+          <HelpButton onClick={() => setShowOnboarding(true)} />
+        </>
+      )}
 
     </FileProvider>
     </RolesProvider>

@@ -69,7 +69,7 @@ export default function BranchesContent({ branches = [], projects = [], teamMemb
                         {b.isPrimary && <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">PRIMARY</span>}
                       </div>
                     </div>
-                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-0.5">
                       <button onClick={() => openEdit(b)} className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"><Edit className="w-3.5 h-3.5" /></button>
                       <button onClick={() => { if (confirm(`Delete ${b.name}?`)) onDeleteBranch?.(b.id) }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>

@@ -236,7 +236,7 @@ export default function PhotosContent({ projects, photos: photosProp, onUploadPh
                 {showReport && reportPhotos.has(photo.id) && (
                   <div className="absolute top-2 right-2 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center"><span className="text-white text-[10px] font-bold">{Array.from(reportPhotos).indexOf(photo.id) + 1}</span></div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent">
                   <button onClick={(e) => handleDeletePhoto(photo, e)} className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center hover:bg-red-600 transition-colors"><X className="w-3 h-3 text-white" /></button>
                   <div className="absolute bottom-0 left-0 right-0 p-2">
                     <p className="text-white text-[10px] font-medium truncate">{photo.caption || photo.name}</p>

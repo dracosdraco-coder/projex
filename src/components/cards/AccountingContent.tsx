@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Project } from '@/types'
-import { formatCurrency, calculateFormTotals } from '@/lib/utils'
+import { formatCurrency, calculateFormTotals, parseLocalDate, formatLocalDate } from '@/lib/utils'
 import {
   DollarSign, TrendingUp, TrendingDown, CheckCircle, Clock,
   AlertTriangle, PieChart, BarChart3, Search, Check
@@ -39,7 +39,7 @@ export default function AccountingContent({
   const financials = useMemo(() => {
     const paidInvoices = invoices.filter((i: any) => i.status === 'paid')
     const sentInvoices = invoices.filter((i: any) => i.status === 'sent')
-    const overdueInvoices = sentInvoices.filter((i: any) => i.dateDue && new Date(i.dateDue) < new Date())
+    const overdueInvoices = sentInvoices.filter((i: any) => i.dateDue && (parseLocalDate(i.dateDue)?.getTime() ?? Infinity) < Date.now())
     const draftInvoices = invoices.filter((i: any) => i.status === 'draft')
 
     const calc = (arr: any[]) => arr.reduce((s: number, i: any) => s + (i.total || calculateFormTotals(i.lineItems || []).totalPrice), 0)
@@ -189,7 +189,7 @@ export default function AccountingContent({
               <div className="space-y-2">
                 {filteredInvoices.map((inv: any) => {
                   const amount = inv.total || calculateFormTotals(inv.lineItems || []).totalPrice
-                  const isOverdue = inv.status === 'sent' && inv.dateDue && new Date(inv.dateDue) < new Date()
+                  const isOverdue = inv.status === 'sent' && inv.dateDue && (parseLocalDate(inv.dateDue)?.getTime() ?? Infinity) < Date.now()
                   return (
                     <div key={inv.id} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-4 flex items-center gap-4">
                       <div className="flex-1 min-w-0">
@@ -202,7 +202,7 @@ export default function AccountingContent({
                             'text-gray-500 bg-gray-100 dark:bg-[#222]'
                           }`}>{isOverdue ? 'overdue' : inv.status}</span>
                         </div>
-                        <p className="text-[11px] text-gray-400 mt-0.5">{inv.clientName || 'No client'} • {inv.dateIssued ? new Date(inv.dateIssued).toLocaleDateString() : ''}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">{inv.clientName || 'No client'} • {inv.dateIssued ? formatLocalDate(inv.dateIssued) : ''}</p>
                       </div>
                       <span className="text-sm font-bold text-gray-900 dark:text-gray-100">{formatCurrency(amount)}</span>
                       {inv.status === 'sent' && (
@@ -212,7 +212,7 @@ export default function AccountingContent({
                         </button>
                       )}
                       {inv.status === 'paid' && inv.datePaid && (
-                        <span className="text-[10px] text-green-600">Paid {new Date(inv.datePaid).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-green-600">Paid {formatLocalDate(inv.datePaid)}</span>
                       )}
                     </div>
                   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { parseLocalDate } from '@/lib/utils'
 
 interface ClientPortalViewProps {
   project: any
@@ -14,7 +15,9 @@ export default function ClientPortalView({ project, phases, documents, expenses,
   const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'timeline'>('overview')
 
   const totalExpenses = expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
-  const contractAmount = project.contract_amount || 0
+  // Contract value lives in the `budget` column — createProject/updateProject write there
+  // (see useProjects.ts); `contract_amount` is an unused legacy column that's always 0.
+  const contractAmount = project.budget || 0
   const progressPercent = contractAmount > 0 ? Math.min(100, Math.round((totalExpenses / contractAmount) * 100)) : 0
 
   const completedPhases = phases.filter((p: any) => p.status === 'completed').length
@@ -36,7 +39,10 @@ export default function ClientPortalView({ project, phases, documents, expenses,
   }
 
   const formatCurrency = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(n)
-  const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+  const formatDate = (d: string) => {
+    const date = parseLocalDate(d)
+    return date ? date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
+  }
 
   const TABS = [
     { id: 'overview' as const, label: 'Overview' },

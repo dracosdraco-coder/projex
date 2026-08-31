@@ -267,11 +267,13 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-[1fr_50px_55px_70px_50px_70px_70px_44px] gap-1 text-[9px] font-medium text-gray-400 uppercase px-0.5 mb-0.5">
+                    {/* Fixed-width columns don't fit a phone screen — scroll horizontally instead of clipping */}
+                    <div className="overflow-x-auto">
+                    <div className="grid grid-cols-[1fr_50px_55px_70px_50px_70px_70px_44px] gap-1 text-[9px] font-medium text-gray-400 uppercase px-0.5 mb-0.5 min-w-[480px]">
                       <span>Description</span><span>Qty</span><span>Unit</span><span>Cost</span><span>Mkp%</span><span>Price</span><span>Total</span><span />
                     </div>
 
-                    <div className="space-y-1">
+                    <div className="space-y-1 min-w-[480px]">
                       {lineItems.map(li => (
                         <div key={li.id} className="space-y-1 group">
                           <div className="grid grid-cols-[1fr_50px_55px_70px_50px_70px_70px_44px] gap-1 items-center">
@@ -289,15 +291,16 @@ export default function DocumentEditor({ document, type, lineItemTemplates = [],
                                   <span onClick={e => { e.stopPropagation(); updateLineItem(li.id, 'photo', '') }} className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white rounded-full text-[7px] flex items-center justify-center leading-none cursor-pointer">✕</span>
                                 </button>
                               ) : (
-                                <label className="p-0.5 text-gray-300 hover:text-blue-500 cursor-pointer opacity-0 group-hover:opacity-100 text-[10px]">
+                                <label className="p-0.5 text-gray-300 hover:text-blue-500 cursor-pointer text-[10px]">
                                   📷<input type="file" accept="image/*" className="hidden" onChange={e => handleLineItemPhoto(li.id, e)} />
                                 </label>
                               )}
-                              <button onClick={() => removeLineItem(li.id)} className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>
+                              <button onClick={() => removeLineItem(li.id)} className="p-0.5 text-gray-300 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
                             </span>
                           </div>
                         </div>
                       ))}
+                    </div>
                     </div>
                   </div>
 

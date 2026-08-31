@@ -89,9 +89,10 @@ export default function MobileLayout({
   const [search, setSearch] = useState('')
   const touchStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
-  const currentCard = cards.find((c: Card) => c.id === activeCard) || cards[0]
+  const currentCard = cards.find((c: Card) => c.id === activeCard)
   const currentView = activeCard === 'more' ? null : activeCard
   const isInSubView = currentView && !DOCK_ITEMS.some(n => n.id === currentView)
+  const currentAppName = APP_SECTIONS.flatMap(s => s.apps).find(a => a.id === activeCard)?.name
 
   // Swipe right to go back
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -133,7 +134,7 @@ export default function MobileLayout({
           )}
 
           <span className="text-[15px] font-semibold text-gray-900 dark:text-gray-100 absolute left-1/2 -translate-x-1/2">
-            {showMore ? 'Projex' : (isInSubView ? currentCard?.title : (currentView === 'dashboard' ? 'Home' : currentCard?.title || 'Projex'))}
+            {showMore ? 'Projex' : (isInSubView ? (currentCard?.title || currentAppName) : (currentView === 'dashboard' ? 'Home' : currentCard?.title || 'Projex'))}
           </span>
 
           <div className="flex items-center gap-1">
@@ -230,10 +231,13 @@ export default function MobileLayout({
       </div>
 
       {/* ===== FAB ===== */}
-      {!showMore && currentView && (
+      {/* Chat and Messages already pin their own send button at the bottom-right —
+          the generic FAB would sit on top of it, so skip it on those screens. */}
+      {!showMore && currentView && !['chat', 'messages'].includes(activeCard || '') && (
         <>
-          {showFAB && <div className="fixed inset-0 z-[98] bg-black/20 backdrop-blur-[2px]" onClick={() => setShowFAB(false)} />}
-          <div className="fixed right-5 z-[100]" style={{ bottom: 'calc(76px + max(env(safe-area-inset-bottom, 0px), 8px))' }}>
+          {showFAB && <div className="fixed inset-0 z-30 bg-black/20 backdrop-blur-[2px]" onClick={() => setShowFAB(false)} />}
+          {/* z-40: stays above normal card content but below card-level modals (z-50+), e.g. Calendar's New Event form */}
+          <div className="fixed right-5 z-40" style={{ bottom: 'calc(76px + max(env(safe-area-inset-bottom, 0px), 8px))' }}>
             {showFAB && (
               <div className="mb-3 flex flex-col gap-2.5 items-end">
                 {[

@@ -17,6 +17,7 @@ interface WindowProps {
   onMinimize: (cardId: string) => void
   onFullscreen: (cardId: string) => void
   onClick: () => void
+  canvasMode?: 'select' | 'pan'
 }
 
 // Minimum pixel dimensions — content won't render smaller than this
@@ -47,6 +48,7 @@ const WindowComponent = ({
   onMinimize,
   onFullscreen,
   onClick,
+  canvasMode,
 }: WindowProps) => {
   const w = Math.max(card.size.width, MIN_W)
   const h = Math.max(card.size.height, MIN_H)
@@ -66,7 +68,7 @@ const WindowComponent = ({
         }}
       >
         <div className="w-full h-full flex flex-col">
-          <TitleBar card={card} onMouseDown={onMouseDown} onClose={onClose} onMinimize={onMinimize} onFullscreen={onFullscreen} />
+          <TitleBar card={card} onMouseDown={onMouseDown} onClose={onClose} onMinimize={onMinimize} onFullscreen={onFullscreen} canvasMode={canvasMode} />
           <div className="flex-1 overflow-auto bg-white dark:bg-[#1a1a1a]">
             {children}
           </div>
@@ -107,7 +109,7 @@ const WindowComponent = ({
       ))}
 
       <div className="w-full h-full rounded-2xl overflow-hidden flex flex-col">
-        <TitleBar card={card} onMouseDown={onMouseDown} onClose={onClose} onMinimize={onMinimize} onFullscreen={onFullscreen} />
+        <TitleBar card={card} onMouseDown={onMouseDown} onClose={onClose} onMinimize={onMinimize} onFullscreen={onFullscreen} canvasMode={canvasMode} />
         {!card.minimized && (
           <div className="flex-1 overflow-auto bg-white dark:bg-[#1a1a1a]">
             {children}
@@ -132,12 +134,13 @@ const Window = memo(WindowComponent, (prev, next) => {
 
 export default Window
 
-function TitleBar({ card, onMouseDown, onClose, onMinimize, onFullscreen }: {
+function TitleBar({ card, onMouseDown, onClose, onMinimize, onFullscreen, canvasMode }: {
   card: Card
   onMouseDown: (e: React.MouseEvent, cardId: string) => void
   onClose: (cardId: string) => void
   onMinimize: (cardId: string) => void
   onFullscreen: (cardId: string) => void
+  canvasMode?: 'select' | 'pan'
 }) {
   return (
     <div
@@ -145,6 +148,9 @@ function TitleBar({ card, onMouseDown, onClose, onMinimize, onFullscreen }: {
         card.fullscreen ? '' : 'cursor-move'
       }`}
       onMouseDown={(e) => {
+        // In Pan mode, let the mousedown bubble up to the canvas so the whole
+        // view pans — dragging from a title bar shouldn't move the card.
+        if (canvasMode === 'pan') return
         if (!card.fullscreen) {
           e.stopPropagation()
           onMouseDown(e, card.id)

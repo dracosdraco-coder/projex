@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Project } from '@/types'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatLocalDate } from '@/lib/utils'
 
 interface BudgetingContentProps {
   projects: Project[]
@@ -139,7 +139,7 @@ export default function BudgetingContent({
         <button
           onClick={() => setShowAddExpense(!showAddExpense)}
           disabled={selectedProject === 'all'}
-          className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm rounded-lg transition-colors font-medium"
+          className="px-3 py-1.5 bg-accent hover:opacity-90 disabled:bg-gray-400 text-white text-sm rounded-lg transition-colors font-medium"
         >
           + Add Expense
         </button>
@@ -199,7 +199,7 @@ export default function BudgetingContent({
 
       {/* Add Expense Form */}
       {showAddExpense && selectedProject !== 'all' && (
-        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border-b border-blue-200 dark:border-blue-800 flex-shrink-0">
+        <div className="p-4 bg-accent/5 dark:bg-accent/10 border-b border-accent/20 flex-shrink-0">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <select
               value={newExpense.type}
@@ -238,7 +238,7 @@ export default function BudgetingContent({
           <div className="flex gap-2 mt-3">
             <button
               onClick={handleAddExpense}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium"
+              className="px-4 py-2 bg-accent hover:opacity-90 text-white text-sm rounded-lg font-medium"
             >
               Add Expense
             </button>
@@ -253,38 +253,41 @@ export default function BudgetingContent({
       )}
 
       {/* Summary Cards */}
-      <div className="p-4 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 flex-shrink-0 bg-gray-50 dark:bg-[#111]">
-        <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a]">
-          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total Budget</div>
-          <div className="text-xl font-bold text-gray-900 dark:text-gray-100">
-            {formatCurrency(totals.totalBudget)}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a]">
-          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Total Expenses</div>
-          <div className="text-xl font-bold text-red-600 dark:text-red-400">
-            {formatCurrency(totals.totalExpenses)}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a]">
-          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Profit</div>
-          <div className={`text-xl font-bold ${
-            totals.totalProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+      <div className="p-4 flex-shrink-0 bg-gray-50 dark:bg-[#111]">
+        {/* Hero metric - the one number that matters, above everything else */}
+        <div className="mb-4">
+          <div className="text-footnote text-gray-500 dark:text-gray-400 uppercase tracking-wide">Profit</div>
+          <div className={`text-largetitle ${
+            totals.totalProfit >= 0 ? 'text-success dark:text-success-dark' : 'text-danger dark:text-danger-dark'
           }`}>
             {formatCurrency(totals.totalProfit)}
           </div>
         </div>
 
-        <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a]">
-          <div className="text-xs text-gray-600 dark:text-gray-400 mb-1">Profit Margin</div>
-          <div className={`text-xl font-bold ${
-            totals.profitMargin >= 20 ? 'text-green-600 dark:text-green-400' : 
-            totals.profitMargin >= 10 ? 'text-yellow-600 dark:text-yellow-400' : 
-            'text-red-600 dark:text-red-400'
-          }`}>
-            {totals.profitMargin.toFixed(1)}%
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a]">
+            <div className="text-caption1 text-gray-600 dark:text-gray-400 mb-1">Total Budget</div>
+            <div className="text-title3 text-gray-900 dark:text-gray-100">
+              {formatCurrency(totals.totalBudget)}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a]">
+            <div className="text-caption1 text-gray-600 dark:text-gray-400 mb-1">Total Expenses</div>
+            <div className="text-title3 text-danger dark:text-danger-dark">
+              {formatCurrency(totals.totalExpenses)}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a]">
+            <div className="text-caption1 text-gray-600 dark:text-gray-400 mb-1">Profit Margin</div>
+            <div className={`text-title3 ${
+              totals.profitMargin >= 20 ? 'text-success dark:text-success-dark' :
+              totals.profitMargin >= 10 ? 'text-warning dark:text-warning-dark' :
+              'text-danger dark:text-danger-dark'
+            }`}>
+              {totals.profitMargin.toFixed(1)}%
+            </div>
           </div>
         </div>
       </div>
@@ -325,12 +328,12 @@ export default function BudgetingContent({
                           </span>
                         </div>
                         <div className="text-gray-600 dark:text-gray-400">
-                          Spent: <span className="font-medium text-red-600 dark:text-red-400">
+                          Spent: <span className="font-medium text-danger dark:text-danger-dark">
                             {formatCurrency(projectTotal)}
                           </span>
                         </div>
                         <div className={`font-medium ${
-                          projectProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                          projectProfit >= 0 ? 'text-success dark:text-success-dark' : 'text-danger dark:text-danger-dark'
                         }`}>
                           {formatCurrency(projectProfit)}
                         </div>
@@ -340,11 +343,11 @@ export default function BudgetingContent({
                     {/* Budget Bar */}
                     <div className="flex items-center gap-3">
                       <div className="flex-1 bg-gray-200 dark:bg-[#252525] rounded-full h-2 overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full transition-all ${
-                            budgetUsed > 100 ? 'bg-red-500' :
-                            budgetUsed > 80 ? 'bg-yellow-500' :
-                            'bg-green-500'
+                            budgetUsed > 100 ? 'bg-danger' :
+                            budgetUsed > 80 ? 'bg-warning' :
+                            'bg-success'
                           }`}
                           style={{ width: `${Math.min(budgetUsed, 100)}%` }}
                         />
@@ -376,7 +379,7 @@ export default function BudgetingContent({
                           {projectExpenses.map(expense => (
                             <tr key={expense.id} className="hover:bg-gray-50 dark:hover:bg-gray-900/30">
                               <td className="px-4 py-3 text-sm text-gray-900 dark:text-gray-100">
-                                {new Date(expense.date).toLocaleDateString()}
+                                {formatLocalDate(expense.date)}
                               </td>
                               <td className="px-4 py-3">
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -394,7 +397,7 @@ export default function BudgetingContent({
                               <td className="px-4 py-3 text-right">
                                 <button
                                   onClick={() => handleDeleteExpense(project.id, expense.id)}
-                                  className="text-red-600 hover:text-red-800 dark:text-red-400 text-sm font-medium"
+                                  className="text-danger hover:opacity-75 dark:text-danger-dark text-sm font-medium"
                                 >
                                   Delete
                                 </button>

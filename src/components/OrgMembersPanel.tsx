@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useRoles, UserRole, ROLE_LABELS } from '@/hooks/useRoles'
 import { Users, Shield, Clock, UserMinus, ChevronDown, Check, AlertCircle, Crown, Mail } from 'lucide-react'
+import { formatLocalDate } from '@/lib/utils'
 
 interface OrgMember {
   id: string
@@ -91,10 +92,7 @@ export default function OrgMembersPanel({ orgId, isOnline }: OrgMembersPanelProp
     setTimeout(() => setActionSuccess(''), 2000)
   }
 
-  const formatDate = (d: string | null) => {
-    if (!d) return '—'
-    return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-  }
+  const formatDate = (d: string | null) => d ? formatLocalDate(d, { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 
   const activeCount = members.filter(m => m.status === 'active').length
   const pendingCount = members.filter(m => m.status === 'pending').length

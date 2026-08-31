@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Meeting, Project } from '@/types'
 import EmptyState from '@/components/ui/EmptyState'
+import { formatLocalDate } from '@/lib/utils'
 
 interface MeetingsContentProps {
   meetings: Meeting[]
@@ -59,7 +60,7 @@ export default function MeetingsContent({
                       e.stopPropagation()
                       onDeleteMeeting(meeting.id)
                     }}
-                    className="p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                    className="p-1 text-gray-400 hover:text-red-500 transition-all"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -122,7 +123,7 @@ export default function MeetingsContent({
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Date & Time</p>
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    {new Date(selectedMeeting.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    {formatLocalDate(selectedMeeting.date, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">{selectedMeeting.time}</p>
                 </div>

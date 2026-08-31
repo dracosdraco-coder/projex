@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { formatLocalDate } from '@/lib/utils'
 
 // Article content database
 const ARTICLES: Record<string, { title: string; category: string; date: string; readTime: string; content: string }> = {
@@ -164,7 +165,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
 
         <div className="flex items-center gap-3 mb-4">
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-blue-400 bg-blue-500/10">{article.category}</span>
-          <span className="text-[11px] text-zinc-500">{new Date(article.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+          <span className="text-[11px] text-zinc-500">{formatLocalDate(article.date, { month: 'long', day: 'numeric', year: 'numeric' })}</span>
           <span className="text-[11px] text-zinc-600">{article.readTime} read</span>
         </div>
 
