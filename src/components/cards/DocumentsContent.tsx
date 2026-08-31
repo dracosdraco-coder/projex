@@ -89,16 +89,16 @@ export default function DocumentsContent({
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-            className="flex-1 px-3 py-1.5 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+            className="w-full sm:flex-1 sm:w-auto px-3 py-1.5 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500" />
           <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)}
-            className="px-2 py-1.5 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs text-gray-900 dark:text-gray-100">
+            className="flex-1 sm:flex-none px-2 py-1.5 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs text-gray-900 dark:text-gray-100">
             <option value="all">All Projects</option>
             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
-            className="px-2 py-1.5 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs text-gray-900 dark:text-gray-100">
+            className="flex-1 sm:flex-none px-2 py-1.5 bg-gray-50 dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-xs text-gray-900 dark:text-gray-100">
             <option value="all">All Types</option>
             {DOC_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
@@ -175,7 +175,7 @@ export default function DocumentsContent({
                 </div>
 
                 {/* Actions */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                   {doc.fileUrl && (
                     <button onClick={() => onDownloadDocument?.(doc.id, doc.name)} className="p-1.5 text-gray-400 hover:text-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20" title="Download">
                       ⬇

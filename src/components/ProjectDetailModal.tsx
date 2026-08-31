@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatLocalDate } from '@/lib/utils'
 import { 
   X, 
   MessageSquare, 
@@ -75,14 +76,7 @@ export default function ProjectDetailModal({
     }).format(amount)
   }
 
-  const formatDate = (date: string) => {
-    if (!date) return 'Not set'
-    return new Date(date).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-  }
+  const formatDate = (date: string) => date ? formatLocalDate(date, { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not set'
 
   const getStatusColor = (status: string) => {
     switch (status) {

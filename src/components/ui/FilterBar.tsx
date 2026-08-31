@@ -266,7 +266,7 @@ useEffect(() => {
           </svg>
           Filters
           {activeCount > 0 && (
-            <span className="ml-1 px-1.5 py-0.5 bg-blue-500 text-white text-xs font-semibold rounded-full">
+            <span className="ml-1 px-1.5 py-0.5 bg-info dark:bg-info-dark text-white text-xs font-semibold rounded-full">
               {activeCount}
             </span>
           )}
@@ -276,12 +276,12 @@ useEffect(() => {
         {activeCount > 0 && (
           <div className="flex items-center gap-1.5 text-xs">
             {filters.userRole.length > 0 && (
-              <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded font-medium">
+              <span className="px-2 py-0.5 bg-info/10 dark:bg-info/20 text-info dark:text-info-dark rounded font-medium">
                 {filters.userRole.length} role{filters.userRole.length !== 1 ? 's' : ''}
               </span>
             )}
             {filters.branches.length > 0 && (
-              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded font-medium">
+              <span className="px-2 py-0.5 bg-info/10 dark:bg-info/20 text-info dark:text-info-dark rounded font-medium">
                 {filters.branches.length} branch{filters.branches.length !== 1 ? 'es' : ''}
               </span>
             )}

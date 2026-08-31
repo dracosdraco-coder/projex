@@ -265,7 +265,7 @@ export default function MessagesContent({
                           <span className="text-[10px] text-gray-400">{formatTime(msg.createdAt)}</span>
                         </div>
                         <button onClick={() => onDeleteMessage(msg.id)}
-                          className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all rounded">
+                          className="p-1 text-gray-300 hover:text-red-500 transition-all rounded">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       </div>

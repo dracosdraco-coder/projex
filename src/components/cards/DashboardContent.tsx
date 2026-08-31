@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import { Project } from '@/types'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatLocalDate } from '@/lib/utils'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts'
 
 import ActivityFeed from '@/components/ActivityFeed'
@@ -251,10 +251,10 @@ export default function DashboardContent({
         )
       
       case 'Start Date':
-        return <span>{project.startDate ? new Date(project.startDate).toLocaleDateString() : '-'}</span>
-      
+        return <span>{project.startDate ? formatLocalDate(project.startDate) : '-'}</span>
+
       case 'Due Date':
-        return <span>{project.dueDate ? new Date(project.dueDate).toLocaleDateString() : '-'}</span>
+        return <span>{project.dueDate ? formatLocalDate(project.dueDate) : '-'}</span>
       
       case 'Team Size':
         return <span>{(project.team || []).length}</span>
@@ -362,56 +362,61 @@ export default function DashboardContent({
       <div className="flex-1 overflow-auto">
         {/* Charts Section - HORIZONTAL SCROLL */}
         <div className="p-6 space-y-6 bg-gray-50 dark:bg-[#111]">
-          {/* KPI Cards - Horizontal scroll */}
-          <div className="overflow-x-auto pb-2">
-            <div className="flex gap-4 min-w-max">
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
-                <div className="text-sm text-gray-600 dark:text-gray-400">Contract Value</div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                  {formatCurrency(metrics.totalRevenue)}
-                </div>
-              </div>
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
-                <div className="text-sm text-green-600 dark:text-green-400">Revenue Collected</div>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-                  {formatCurrency(metrics.paidRevenue)}
-                </div>
-              </div>
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
-                <div className="text-sm text-blue-600 dark:text-blue-400">Outstanding</div>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                  {formatCurrency(metrics.outstanding)}
-                </div>
-              </div>
-              {metrics.overdue > 0 && (
-                <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-red-200 dark:border-red-900/30 min-w-[160px] md:min-w-[200px]">
-                  <div className="text-sm text-red-600 dark:text-red-400">Overdue</div>
-                  <div className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
-                    {formatCurrency(metrics.overdue)}
+          {/* Hero metric - the one number that matters, above everything else */}
+          <div>
+            <div className="text-footnote text-gray-500 dark:text-gray-400 uppercase tracking-wide">Net Profit</div>
+            <div className={`text-largetitle mt-1 ${
+              metrics.netProfit >= 0 ? 'text-success dark:text-success-dark' : 'text-danger dark:text-danger-dark'
+            }`}>
+              {formatCurrency(metrics.netProfit)}
+            </div>
+          </div>
+
+          {/* KPI Cards - Horizontal scroll, with a fade edge to signal there's more */}
+          <div className="relative">
+            <div className="overflow-x-auto pb-2">
+              <div className="flex gap-4 min-w-max">
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
+                  <div className="text-footnote text-gray-600 dark:text-gray-400">Contract Value</div>
+                  <div className="text-title3 text-gray-900 dark:text-gray-100 mt-1">
+                    {formatCurrency(metrics.totalRevenue)}
                   </div>
                 </div>
-              )}
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
-                <div className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                  {formatCurrency(metrics.totalExpenses)}
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
+                  <div className="text-footnote text-success dark:text-success-dark">Revenue Collected</div>
+                  <div className="text-title3 text-success dark:text-success-dark mt-1">
+                    {formatCurrency(metrics.paidRevenue)}
+                  </div>
                 </div>
-              </div>
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
-                <div className={`text-sm ${metrics.netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>Net Profit</div>
-                <div className={`text-2xl font-bold mt-1 ${
-                  metrics.netProfit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatCurrency(metrics.netProfit)}
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
+                  <div className="text-footnote text-accent dark:text-accent-dark">Outstanding</div>
+                  <div className="text-title3 text-accent dark:text-accent-dark mt-1">
+                    {formatCurrency(metrics.outstanding)}
+                  </div>
                 </div>
-              </div>
-              <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
-                <div className="text-sm text-gray-600 dark:text-gray-400">Active Projects</div>
-                <div className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                  {metrics.activeProjects}
+                {metrics.overdue > 0 && (
+                  <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-red-200 dark:border-red-900/30 min-w-[160px] md:min-w-[200px]">
+                    <div className="text-footnote text-danger dark:text-danger-dark">Overdue</div>
+                    <div className="text-title3 text-danger dark:text-danger-dark mt-1">
+                      {formatCurrency(metrics.overdue)}
+                    </div>
+                  </div>
+                )}
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
+                  <div className="text-footnote text-gray-600 dark:text-gray-400">Total Expenses</div>
+                  <div className="text-title3 text-gray-900 dark:text-gray-100 mt-1">
+                    {formatCurrency(metrics.totalExpenses)}
+                  </div>
+                </div>
+                <div className="bg-white dark:bg-[#1a1a1a] rounded-lg p-4 border border-gray-200 dark:border-[#2a2a2a] min-w-[160px] md:min-w-[200px]">
+                  <div className="text-footnote text-gray-600 dark:text-gray-400">Active Projects</div>
+                  <div className="text-title3 text-gray-900 dark:text-gray-100 mt-1">
+                    {metrics.activeProjects}
+                  </div>
                 </div>
               </div>
             </div>
+            <div className="pointer-events-none absolute right-0 top-0 bottom-2 w-10 bg-gradient-to-l from-gray-50 dark:from-[#111] to-transparent" />
           </div>
 
           {/* Charts Grid - Horizontal scroll */}

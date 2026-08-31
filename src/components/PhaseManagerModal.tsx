@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { X, Plus, Calendar, CheckSquare, Trash2, Edit } from 'lucide-react'
+import { formatLocalDate } from '@/lib/utils'
 
 interface PhaseManagerModalProps {
   projectId: string
@@ -109,11 +110,11 @@ export default function PhaseManagerModal({
           </button>
         </div>
 
-        {/* Split View */}
-        <div className="flex-1 flex overflow-hidden">
+        {/* Split View — stacked on mobile since two side-by-side panes don't fit a phone width */}
+        <div className="flex-1 flex flex-col sm:flex-row overflow-hidden">
           {/* Left: Phases */}
-          <div className="w-1/2 border-r border-gray-200 dark:border-[#2a2a2a] flex flex-col">
-            <div className="p-4 border-b border-gray-200 dark:border-[#2a2a2a] flex items-center justify-between">
+          <div className="w-full sm:w-1/2 h-1/2 sm:h-full border-b sm:border-b-0 sm:border-r border-gray-200 dark:border-[#2a2a2a] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-200 dark:border-[#2a2a2a] flex items-center justify-between flex-wrap gap-2">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">Phases ({phases.length})</h3>
               <button
                 onClick={() => {
@@ -156,9 +157,9 @@ export default function PhaseManagerModal({
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-sm text-gray-900 dark:text-gray-100 mb-1">{phase.name}</h4>
                         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                          <span>{new Date(phase.startDate).toLocaleDateString()}</span>
+                          <span>{formatLocalDate(phase.startDate)}</span>
                           <span>→</span>
-                          <span>{new Date(phase.endDate).toLocaleDateString()}</span>
+                          <span>{formatLocalDate(phase.endDate)}</span>
                         </div>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           {phase.tasks?.length || 0} tasks
@@ -205,8 +206,8 @@ export default function PhaseManagerModal({
           </div>
 
           {/* Right: Tasks */}
-          <div className="w-1/2 flex flex-col">
-            <div className="p-4 border-b border-gray-200 dark:border-[#2a2a2a] flex items-center justify-between">
+          <div className="w-full sm:w-1/2 h-1/2 sm:h-full flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-200 dark:border-[#2a2a2a] flex items-center justify-between flex-wrap gap-2">
               <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                 Tasks {currentPhase && `(${phaseTasks.length})`}
               </h3>
@@ -264,7 +265,7 @@ export default function PhaseManagerModal({
                         <div className="flex items-center gap-3 mt-2 text-xs text-gray-500 dark:text-gray-400">
                           <span className="capitalize">{task.priority}</span>
                           {task.assignedToName && <span>{task.assignedToName}</span>}
-                          {task.dueDate && <span>Due {new Date(task.dueDate).toLocaleDateString()}</span>}
+                          {task.dueDate && <span>Due {formatLocalDate(task.dueDate)}</span>}
                         </div>
                       </div>
                       <div className="flex items-center gap-1">

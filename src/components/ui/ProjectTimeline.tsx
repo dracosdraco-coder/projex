@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Project, TimelineEvent } from '@/types'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatLocalDate } from '@/lib/utils'
 
 interface ProjectTimelineProps {
   project: Project
@@ -169,25 +169,25 @@ export default function ProjectTimeline({
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Proposal Date</p>
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {project.proposalDate ? new Date(project.proposalDate).toLocaleDateString() : 'Not set'}
+                {project.proposalDate ? formatLocalDate(project.proposalDate) : 'Not set'}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Contract Signed</p>
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {project.contractSignedDate ? new Date(project.contractSignedDate).toLocaleDateString() : 'Not set'}
+                {project.contractSignedDate ? formatLocalDate(project.contractSignedDate) : 'Not set'}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Work Started</p>
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {project.actualStartDate ? new Date(project.actualStartDate).toLocaleDateString() : 'Not set'}
+                {project.actualStartDate ? formatLocalDate(project.actualStartDate) : 'Not set'}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Work Completed</p>
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {project.actualEndDate ? new Date(project.actualEndDate).toLocaleDateString() : 'Not set'}
+                {project.actualEndDate ? formatLocalDate(project.actualEndDate) : 'Not set'}
               </p>
             </div>
           </div>
@@ -333,7 +333,7 @@ export default function ProjectTimeline({
                       </div>
                       <div className="text-right flex-shrink-0">
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(event.date).toLocaleDateString()}
+                          {formatLocalDate(event.date)}
                         </p>
                         {event.user && (
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">

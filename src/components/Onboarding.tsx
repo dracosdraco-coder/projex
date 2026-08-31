@@ -8,7 +8,7 @@ const STEPS = [
     icon: Sparkles,
     title: 'Welcome to Projex',
     body: 'Your construction management workspace. Everything lives on one infinite canvas — drag, resize, and arrange cards however you like.',
-    tip: 'Double-click the canvas background to zoom fit, or scroll to zoom in/out.',
+    tip: 'Double-click the canvas background to zoom fit. Hold ⌘/Ctrl and scroll (or pinch on a trackpad) to zoom.',
   },
   {
     icon: Layout,

@@ -217,7 +217,7 @@ export default function ProposalBuilder({ isOpen, onClose, onSave, document, typ
                         ) : section.type === 'pagebreak' ? (
                           <span className="flex-1 text-xs text-gray-400 italic">— Page Break —</span>
                         ) : <span className="flex-1" />}
-                        <button onClick={() => removeSection(section.id)} className="p-1 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => removeSection(section.id)} className="p-1 text-gray-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                       {section.type !== 'pagebreak' && section.type !== 'heading' && (
                         <div className="p-3">

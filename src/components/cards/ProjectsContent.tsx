@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { Project } from '@/types'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatLocalDate } from '@/lib/utils'
 import ProjectDetailModal from '@/components/ProjectDetailModal'
 import EmptyState from '@/components/ui/EmptyState'
 import { 
@@ -129,7 +129,7 @@ const [selectedProject, setSelectedProject] = useState<any | null>(null)
           
           <button
             onClick={onCreateProject}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:opacity-90 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             New Project
@@ -137,16 +137,16 @@ const [selectedProject, setSelectedProject] = useState<any | null>(null)
         </div>
 
         {/* Filters & Search */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           {/* Search */}
-          <div className="flex-1 relative">
+          <div className="relative w-full md:flex-1 md:w-auto order-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search projects..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100"
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm focus:ring-2 focus:ring-accent bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100"
             />
           </div>
 
@@ -154,7 +154,7 @@ const [selectedProject, setSelectedProject] = useState<any | null>(null)
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value as FilterStatus)}
-            className="px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100"
+            className="flex-1 md:flex-none px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm focus:ring-2 focus:ring-accent bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100 order-2"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -166,7 +166,7 @@ const [selectedProject, setSelectedProject] = useState<any | null>(null)
           <select
             value={sortBy}
             onChange={e => setSortBy(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100"
+            className="flex-1 md:flex-none px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm focus:ring-2 focus:ring-accent bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100 order-3"
           >
             <option value="name">Name</option>
             <option value="date">Date</option>
@@ -175,7 +175,7 @@ const [selectedProject, setSelectedProject] = useState<any | null>(null)
           </select>
 
           {/* View Toggle */}
-          <div className="flex bg-gray-100 dark:bg-[#252525] rounded-lg p-1">
+          <div className="flex bg-gray-100 dark:bg-[#252525] rounded-lg p-1 order-4">
             <button
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded transition-colors ${
@@ -355,7 +355,7 @@ function ProjectCard({
                       onDelete()
                       setShowMenu(false)
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm text-danger hover:bg-danger/5 dark:hover:bg-danger/10 flex items-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete
@@ -389,7 +389,7 @@ function ProjectCard({
           
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <Calendar className="w-4 h-4" />
-            <span>Due: {new Date(project.dueDate).toLocaleDateString()}</span>
+            <span>Due: {formatLocalDate(project.dueDate)}</span>
           </div>
 
           {project.team && project.team.length > 0 && (
@@ -409,7 +409,7 @@ function ProjectCard({
             </div>
             <div className="h-2 bg-gray-200 dark:bg-[#252525] rounded-full overflow-hidden">
               <div 
-                className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                className="h-full bg-accent rounded-full transition-all duration-300"
                 style={{ width: `${project.progress}%` }}
               />
             </div>
@@ -470,13 +470,13 @@ function ProjectList({
                 {formatCurrency(project.contractAmount || 0)}
               </td>
               <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                {new Date(project.dueDate).toLocaleDateString()}
+                {formatLocalDate(project.dueDate)}
               </td>
               <td className="px-6 py-4">
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-2 bg-gray-200 dark:bg-[#252525] rounded-full overflow-hidden max-w-[100px]">
                     <div 
-                      className="h-full bg-blue-600 rounded-full"
+                      className="h-full bg-accent rounded-full"
                       style={{ width: `${project.progress || 0}%` }}
                     />
                   </div>
@@ -513,7 +513,7 @@ function ProjectList({
                     className="p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                     title="Delete"
                   >
-                    <Trash2 className="w-4 h-4 text-red-600" />
+                    <Trash2 className="w-4 h-4 text-danger" />
                   </button>
                 </div>
               </td>

@@ -111,7 +111,7 @@ return sum + (p.expenses || []).reduce((expSum, e) => expSum + e.amount, 0)
             {/* Delete Button */}
             <button
               onClick={() => onDelete(kpi.id)}
-              className="absolute top-2 right-2 w-6 h-6 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-200 dark:hover:bg-red-900/40 flex items-center justify-center"
+              className="absolute top-2 right-2 w-6 h-6 bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg transition-opacity hover:bg-red-200 dark:hover:bg-red-900/40 flex items-center justify-center"
               title="Delete KPI"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

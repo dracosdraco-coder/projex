@@ -271,20 +271,39 @@ export function useProjects(userId: string | undefined, orgId?: string | null) {
 
     if (error) throw error
 
+    // Map the raw row (DB column is `category`) to the Expense shape (`type`) — the same
+    // mapping the initial fetch applies — so freshly-added expenses match by category/type
+    // immediately instead of only after a reload.
+    const mappedExpense: Expense = {
+      id: newExpense.id,
+      type: newExpense.category,
+      description: newExpense.description,
+      amount: newExpense.amount,
+      date: newExpense.date,
+      projectId: newExpense.project_id,
+      createdAt: newExpense.created_at,
+      updatedAt: newExpense.updated_at,
+    }
+
     setProjects(prev => prev.map(p => {
       if (p.id === projectId) {
-        return { ...p, expenses: [...(p.expenses || []), newExpense as Expense] }
+        return { ...p, expenses: [...(p.expenses || []), mappedExpense] }
       }
       return p
     }))
 
-    return newExpense as Expense
+    return mappedExpense
   }, [userId])
 
   const updateExpense = useCallback(async (projectId: string, expenseId: string, updates: Partial<Expense>) => {
+    // DB column is `category`, not `type` — translate before writing, same as addExpense.
+    const { type, ...rest } = updates
+    const dbUpdates: Record<string, any> = { ...rest }
+    if (type !== undefined) dbUpdates.category = type
+
     const { error } = await supabase
       .from('expenses')
-      .update(updates)
+      .update(dbUpdates)
       .eq('id', expenseId)
       .select()
       .single()

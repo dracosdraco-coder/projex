@@ -127,21 +127,21 @@ export default function FormsContent({
           ))}
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex-1 relative">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
+          <div className="relative w-full md:flex-1 md:w-auto order-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input type="text" placeholder="Search by number, client, or type..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100" />
           </div>
-          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100">
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="flex-1 md:flex-none px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100 order-2">
             <option value="all">All Types</option>
             {documentTypes.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100">
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="flex-1 md:flex-none px-3 py-2 border border-gray-300 dark:border-[#333] rounded-lg text-sm bg-white dark:bg-[#252525] text-gray-900 dark:text-gray-100 order-3">
             <option value="all">All Status</option>
             <option value="draft">Draft</option><option value="sent">Sent</option><option value="approved">Approved</option><option value="paid">Paid</option><option value="rejected">Rejected</option>
           </select>
-          <div className="flex bg-gray-100 dark:bg-[#252525] rounded-lg p-1">
+          <div className="flex bg-gray-100 dark:bg-[#252525] rounded-lg p-1 order-4">
             <button onClick={() => setViewMode('grid')} className={`p-2 rounded ${viewMode === 'grid' ? 'bg-white dark:bg-[#333] shadow-sm' : ''}`}><Grid3x3 className="w-4 h-4 text-gray-700 dark:text-gray-300" /></button>
             <button onClick={() => setViewMode('list')} className={`p-2 rounded ${viewMode === 'list' ? 'bg-white dark:bg-[#333] shadow-sm' : ''}`}><List className="w-4 h-4 text-gray-700 dark:text-gray-300" /></button>
           </div>

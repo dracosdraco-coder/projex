@@ -295,14 +295,14 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
                   <div className="p-2 space-y-2">
                     {section.items.map(item => (
                       <div key={item.id} className="border border-gray-100 dark:border-[#2a2a2a] rounded-lg p-2 group hover:border-gray-300 dark:hover:border-[#444]">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <input value={item.question} onChange={e => updateItem(section.id, item.id, 'question', e.target.value)} placeholder="Inspection item..."
-                            className="flex-1 px-2 py-1 text-xs bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                            className="flex-1 min-w-[140px] px-2 py-1 text-xs bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded focus:outline-none focus:ring-1 focus:ring-blue-500" />
                           <select value={item.type} onChange={e => updateItem(section.id, item.id, 'type', e.target.value)}
-                            className="px-1 py-1 text-[10px] bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded w-20">
+                            className="shrink-0 px-1 py-1 text-[10px] bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded w-20">
                             <option value="pass_fail">Pass/Fail</option><option value="yes_no">Yes/No</option><option value="text">Text</option>
                           </select>
-                          <div className="flex gap-0.5">
+                          <div className="shrink-0 flex gap-0.5">
                             {item.type === 'text' ? (
                               <input value={item.answer} onChange={e => updateItem(section.id, item.id, 'answer', e.target.value)} placeholder="Answer"
                                 className="px-1.5 py-0.5 text-[10px] border border-gray-200 dark:border-[#333] rounded w-20 bg-white dark:bg-[#222]" />
@@ -315,7 +315,7 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
                               ))
                             )}
                           </div>
-                          <button onClick={() => removeItem(section.id, item.id)} className="p-0.5 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 className="w-3 h-3" /></button>
+                          <button onClick={() => removeItem(section.id, item.id)} className="shrink-0 p-0.5 text-gray-300 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
                         </div>
                         <div className="flex items-center gap-2 mt-1.5">
                           <input value={item.notes} onChange={e => updateItem(section.id, item.id, 'notes', e.target.value)} placeholder="Add notes..."

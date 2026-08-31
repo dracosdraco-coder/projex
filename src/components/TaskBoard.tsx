@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Task, TaskStatus, ProjectPhase } from '@/types/project-types-enhanced'
 import TaskModal from '@/components/TaskModal'
+import { parseLocalDate, formatLocalDate } from '@/lib/utils'
 
 interface TaskBoardProps {
   allProjects: any[] // Project[]
@@ -255,11 +256,11 @@ return (
                             </div>
                             {task.dueDate && (
                               <span className={
-                                new Date(task.dueDate) < new Date()
+                                (parseLocalDate(task.dueDate)?.getTime() ?? Infinity) < Date.now()
                                   ? 'text-red-600 dark:text-red-400 font-medium'
                                   : ''
                               }>
-                                {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                {formatLocalDate(task.dueDate, { month: 'short', day: 'numeric' })}
                               </span>
                             )}
                           </div>

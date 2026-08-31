@@ -94,11 +94,12 @@ export interface ProjectFormData {
 export interface LineItem {
   id: string
   description: string
-  materialCost: number
-  laborCost: number
-  materialMargin: number
-  laborMargin: number
   quantity: number
+  unit?: string
+  cost: number
+  markup: number
+  price: number
+  unitPrice?: number
 }
 
 export interface FormDocument {

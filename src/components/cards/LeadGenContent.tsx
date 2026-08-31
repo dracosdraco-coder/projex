@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 
 import type { Lead } from '@/hooks/useLeads'
+import { formatLocalDate } from '@/lib/utils'
 
 interface LeadGenContentProps {
   leads?: Lead[]
@@ -94,7 +95,7 @@ export default function LeadGenContent({ leads: leadsProp = [], onCreateLead, on
   }
 
   const formatCurrency = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(n)
-  const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'
+  const formatDate = (d: string) => d ? formatLocalDate(d, { month: 'short', day: 'numeric' }) : '—'
 
   return (
     <div className="h-full flex flex-col bg-gray-50 dark:bg-[#111]">

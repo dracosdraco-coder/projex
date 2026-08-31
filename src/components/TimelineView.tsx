@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ProjectPhase, Task, Milestone } from '@/types/project-types-enhanced'
 import { Project } from '@/types'
 import TaskModal from '@/components/TaskModal'
+import { parseLocalDate } from '@/lib/utils'
 
 interface TimelineViewProps {
   allProjects: Project[]
@@ -45,7 +46,10 @@ const [showTaskModal, setShowTaskModal] = useState(false)
   const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
   
   const getPixelsPerDay = () => {
-    const base = zoom === 'month' ? 1 : zoom === 'week' ? 4 : 20
+    // Week/month bases must stay wide enough that header labels ("Mon DD" / "Mon YYYY")
+    // don't overlap their column — the old 4px/day and 1px/day produced 28px and 30px
+    // columns respectively, both narrower than the label text.
+    const base = zoom === 'month' ? 2 : zoom === 'week' ? 8 : 20
     return base * zoomScale
   }
 
@@ -62,7 +66,8 @@ const [showTaskModal, setShowTaskModal] = useState(false)
   }
 
   const getPositionFromDate = (date: string) => {
-    const targetDate = new Date(date)
+    const targetDate = parseLocalDate(date)
+    if (!targetDate) return 0
     const daysDiff = Math.ceil((targetDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
     return Math.max(0, daysDiff * pixelsPerDay)
   }
@@ -155,8 +160,8 @@ const [showTaskModal, setShowTaskModal] = useState(false)
   return (
     <div className="h-full flex flex-col bg-white dark:bg-[#1a1a1a]">
       {/* Controls */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-[#2c2c2e]">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-y-2 p-4 border-b border-gray-200 dark:border-[#2c2c2e]">
+        <div className="flex flex-wrap items-center gap-4">
           {/* Project Filter */}
           <div className="flex items-center gap-2">
             <label className="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -201,7 +206,7 @@ const [showTaskModal, setShowTaskModal] = useState(false)
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-4">
           {/* Zoom Controls */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500 dark:text-gray-400">Zoom:</span>

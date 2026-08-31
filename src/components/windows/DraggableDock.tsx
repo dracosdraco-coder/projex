@@ -97,7 +97,7 @@ export default function DraggableDock({
                     <div className="text-2xl leading-none pointer-events-none flex items-center justify-center w-7 h-7">
                       <CardIcon type={card.type || card.id || 'projects'} size={20} className="text-gray-600 dark:text-gray-400" />
                     </div>
-                    <div className="text-[10px] font-medium text-gray-600 dark:text-gray-400 text-center leading-tight pointer-events-none whitespace-nowrap max-w-[64px] truncate">
+                    <div className="text-caption2 font-medium text-gray-600 dark:text-gray-400 text-center pointer-events-none max-w-[64px] line-clamp-2">
                       {card.title}
                     </div>
 

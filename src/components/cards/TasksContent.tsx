@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { CheckSquare, Plus, X, Trash2, MessageCircle, Calendar, User } from 'lucide-react'
 import Popup from '@/components/ui/Popup'
+import { formatLocalDate } from '@/lib/utils'
 
 interface Task {
   id: string
@@ -110,8 +111,8 @@ const handleAddComment = async () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'urgent': return 'bg-red-100 text-red-800 border-red-300'
-      case 'high': return 'bg-orange-100 text-orange-800 border-orange-300'
+      case 'urgent': return 'bg-danger/10 text-danger border-danger/30'
+      case 'high': return 'bg-warning/10 text-warning border-warning/30'
       case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-300'
       default: return 'bg-gray-100 text-gray-800 border-gray-300'
     }
@@ -119,16 +120,14 @@ const handleAddComment = async () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-50 border-green-200'
-      case 'in-progress': return 'bg-blue-50 border-blue-200'
-      case 'review': return 'bg-purple-50 border-purple-200'
+      case 'completed': return 'bg-success/5 border-success/20'
+      case 'in-progress': return 'bg-accent/5 border-accent/20'
+      case 'review': return 'bg-info/5 border-info/20'
       default: return 'bg-gray-50 border-gray-200'
     }
   }
 
-  const formatDate = (date: string) => {
-    return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
+  const formatDate = (date: string) => formatLocalDate(date, { month: 'short', day: 'numeric' })
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -141,7 +140,7 @@ const handleAddComment = async () => {
           </div>
           <button
             onClick={() => setShowAddTask(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:opacity-90 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             New Task
@@ -151,7 +150,7 @@ const handleAddComment = async () => {
         <select
           value={selectedProject}
           onChange={e => setSelectedProject(e.target.value)}
-          className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-accent"
         >
           <option value="all">All Projects</option>
           {projects.map(p => (
@@ -197,8 +196,8 @@ const handleAddComment = async () => {
           {/* In Progress Column */}
           <div className="flex-1 min-w-0 md:min-w-[300px]">
             <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border dark:border-[#2a2a2a] md:h-full max-h-[50vh] md:max-h-none flex flex-col">
-              <div className="px-4 py-3 border-b bg-blue-50">
-                <h3 className="font-semibold text-blue-700">In Progress ({tasksByStatus['in-progress'].length})</h3>
+              <div className="px-4 py-3 border-b bg-accent/5">
+                <h3 className="font-semibold text-accent">In Progress ({tasksByStatus['in-progress'].length})</h3>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {tasksByStatus['in-progress'].map(task => (
@@ -219,8 +218,8 @@ const handleAddComment = async () => {
           {/* Review Column */}
           <div className="flex-1 min-w-0 md:min-w-[300px]">
             <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border dark:border-[#2a2a2a] md:h-full max-h-[50vh] md:max-h-none flex flex-col">
-              <div className="px-4 py-3 border-b bg-purple-50">
-                <h3 className="font-semibold text-purple-700">Review ({tasksByStatus['review'].length})</h3>
+              <div className="px-4 py-3 border-b bg-info/5">
+                <h3 className="font-semibold text-info">Review ({tasksByStatus['review'].length})</h3>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {tasksByStatus['review'].map(task => (
@@ -241,8 +240,8 @@ const handleAddComment = async () => {
           {/* Completed Column */}
           <div className="flex-1 min-w-0 md:min-w-[300px]">
             <div className="bg-white dark:bg-[#1a1a1a] rounded-lg border dark:border-[#2a2a2a] md:h-full max-h-[50vh] md:max-h-none flex flex-col">
-              <div className="px-4 py-3 border-b bg-green-50">
-                <h3 className="font-semibold text-green-700">Completed ({tasksByStatus['completed'].length})</h3>
+              <div className="px-4 py-3 border-b bg-success/5">
+                <h3 className="font-semibold text-success">Completed ({tasksByStatus['completed'].length})</h3>
               </div>
               <div className="flex-1 overflow-y-auto p-3 space-y-3">
                 {tasksByStatus['completed'].map(task => (
@@ -274,7 +273,7 @@ const handleAddComment = async () => {
                   required
                   value={formData.title}
                   onChange={e => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-accent focus:outline-none"
                 />
               </div>
 
@@ -283,7 +282,7 @@ const handleAddComment = async () => {
                 <textarea
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-accent focus:outline-none"
                   rows={3}
                 />
               </div>
@@ -294,7 +293,7 @@ const handleAddComment = async () => {
                   required
                   value={formData.projectId}
                   onChange={e => setFormData({ ...formData, projectId: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-accent focus:outline-none"
                 >
                   <option value="">Select project</option>
                   {projects.map(p => (
@@ -308,7 +307,7 @@ const handleAddComment = async () => {
                 <select
                   value={formData.priority}
                   onChange={e => setFormData({ ...formData, priority: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-accent focus:outline-none"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -322,7 +321,7 @@ const handleAddComment = async () => {
                 <select
                   value={formData.assignedTo}
                   onChange={e => setFormData({ ...formData, assignedTo: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-accent focus:outline-none"
                 >
                   <option value="">Unassigned</option>
                   {teamMembers.map(m => (
@@ -337,7 +336,7 @@ const handleAddComment = async () => {
                   type="date"
                   value={formData.dueDate}
                   onChange={e => setFormData({ ...formData, dueDate: e.target.value })}
-                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-[#222] border border-gray-200 dark:border-[#333] rounded-lg text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-accent focus:outline-none"
                 />
               </div>
 
@@ -351,7 +350,7 @@ const handleAddComment = async () => {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex-1 px-4 py-2 bg-accent text-white rounded-lg hover:opacity-90"
                 >
                   Create Task
                 </button>
@@ -392,7 +391,7 @@ const handleAddComment = async () => {
                 <select
                   value={selectedTask.status}
                   onChange={e => handleStatusChange(selectedTask.id, e.target.value as Task['status'])}
-                  className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-accent"
                 >
                   <option value="todo">To Do</option>
                   <option value="in-progress">In Progress</option>
@@ -433,11 +432,11 @@ const handleAddComment = async () => {
                     onKeyDown={e => {
                       if (e.key === 'Enter') handleAddComment()
                     }}
-                    className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                    className="flex-1 px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-accent"
                   />
                   <button
                     onClick={handleAddComment}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                    className="px-4 py-2 bg-accent text-white rounded-lg hover:opacity-90 text-sm"
                   >
                     Comment
                   </button>
@@ -471,7 +470,7 @@ function TaskCard({
     <div className="bg-white border rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer">
       <div className="flex items-start justify-between mb-2">
         <h4 
-          className="font-medium text-sm flex-1 cursor-pointer hover:text-blue-600"
+          className="font-medium text-sm flex-1 cursor-pointer hover:text-accent"
           onClick={() => onViewDetails(task)}
         >
           {task.title}
@@ -479,7 +478,7 @@ function TaskCard({
 <div className="flex items-start justify-between mb-2">
   <div className="flex-1">
     <h4 
-      className="font-medium text-sm cursor-pointer hover:text-blue-600"
+      className="font-medium text-sm cursor-pointer hover:text-accent"
       onClick={() => onViewDetails(task)}
     >
       {task.title}
@@ -490,7 +489,7 @@ function TaskCard({
   </div>
   <button
     onClick={() => onDelete(task.id)}
-    className="text-gray-400 hover:text-red-600 ml-2"
+    className="text-gray-400 hover:text-danger ml-2"
   >
     <Trash2 className="w-3 h-3" />
   </button>
@@ -536,7 +535,7 @@ function TaskCard({
           onStatusChange(task.id, e.target.value as Task['status'])
         }}
         onClick={e => e.stopPropagation()}
-        className="w-full mt-2 px-2 py-1 border rounded text-xs focus:ring-2 focus:ring-blue-500"
+        className="w-full mt-2 px-2 py-1 border rounded text-xs focus:ring-2 focus:ring-accent"
       >
         <option value="todo">To Do</option>
         <option value="in-progress">In Progress</option>

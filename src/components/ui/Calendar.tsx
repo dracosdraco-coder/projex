@@ -352,8 +352,8 @@ export default function Calendar({
   return (
     <div className="h-full flex flex-col">
       {/* Header with controls */}
-      <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-200 dark:border-[#2a2a2a]">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-y-2 mb-4 pb-4 border-b border-gray-200 dark:border-[#2a2a2a]">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={goToToday}
             className="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-[#222222] hover:bg-gray-200 dark:hover:bg-[#2a2a2a] rounded-lg transition-colors"

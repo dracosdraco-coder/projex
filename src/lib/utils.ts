@@ -4,20 +4,40 @@ export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
 
-export function calculateLineItemTotal(item: LineItem) {
-  const materialTotal = item.materialCost * item.quantity * (1 + item.materialMargin / 100)
-  const laborTotal = item.laborCost * item.quantity * (1 + item.laborMargin / 100)
-  return materialTotal + laborTotal
+// A bare "YYYY-MM-DD" string (from a <input type="date">, or stored as a DB date column) has no
+// time component, so `new Date(str)` parses it as UTC midnight per the ISO 8601 spec. Rendering
+// that with toLocaleDateString() in any timezone behind UTC (e.g. US timezones) rolls it back a
+// day — Sep 1 becomes Aug 31. This parses date-only strings as local dates instead, while still
+// handling full timestamps (which already carry correct time/zone info) the normal way.
+export function parseLocalDate(dateStr: string): Date | null {
+  if (!dateStr) return null
+  if (dateStr.includes('T') || dateStr.includes(' ')) {
+    const d = new Date(dateStr)
+    return isNaN(d.getTime()) ? null : d
+  }
+  const [year, month, day] = dateStr.split('-').map(Number)
+  if (!year || !month || !day) return null
+  return new Date(year, month - 1, day)
 }
 
+export function formatLocalDate(dateStr: string, options?: Intl.DateTimeFormatOptions): string {
+  const date = parseLocalDate(dateStr)
+  return date ? date.toLocaleDateString('en-US', options) : 'Not set'
+}
+
+export function calculateLineItemTotal(item: LineItem) {
+  return (item.quantity || 0) * (item.price || 0)
+}
+
+// Line items are saved by DocumentEditor as { quantity, cost, price, ... } — price already
+// has markup baked in. totalMaterial/totalLabor are kept for callers but no longer split out
+// since the editor uses a single cost/price per line, not separate material/labor costs.
 export const calculateFormTotals = (items: LineItem[]) => {
-  const totalMaterial = items.reduce((sum, item) => sum + (item.materialCost * item.quantity), 0)
-  const totalLabor = items.reduce((sum, item) => sum + (item.laborCost * item.quantity), 0)
-  const totalCost = totalMaterial + totalLabor
+  const totalCost = items.reduce((sum, item) => sum + (item.quantity || 0) * (item.cost || 0), 0)
   const totalPrice = items.reduce((sum, item) => sum + calculateLineItemTotal(item), 0)
   const grossProfit = totalPrice - totalCost
   const grossPercentage = totalPrice > 0 ? (grossProfit / totalPrice) * 100 : 0
-  return { totalMaterial, totalLabor, totalCost, totalPrice, grossProfit, grossPercentage }
+  return { totalMaterial: totalCost, totalLabor: 0, totalCost, totalPrice, grossProfit, grossPercentage }
 }
 
 export const getStatusColor = (status: string): string => {
@@ -68,7 +88,9 @@ export const getCursor = (direction: string | null): string => {
 }
 
 export const formatDate = (date: string): string => {
-  return new Date(date).toLocaleDateString('en-US', {
+  const d = parseLocalDate(date)
+  if (!d) return ''
+  return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric'

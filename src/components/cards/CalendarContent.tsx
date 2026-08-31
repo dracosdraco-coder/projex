@@ -375,7 +375,7 @@ export default function CalendarContent({
 
           <button
             onClick={() => openCreateEventModal()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors font-medium"
+            className="px-4 py-2 bg-accent hover:opacity-90 text-white text-sm rounded-lg transition-colors font-medium"
           >
             New Event
           </button>
@@ -422,7 +422,7 @@ export default function CalendarContent({
                     >
                       <div className={`text-sm font-medium mb-1 ${
                         today
-                          ? 'bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center'
+                          ? 'bg-accent text-white w-7 h-7 rounded-full flex items-center justify-center'
                           : currentMonth
                           ? 'text-gray-900 dark:text-gray-100'
                           : 'text-gray-400 dark:text-gray-600'
@@ -482,7 +482,7 @@ export default function CalendarContent({
                       </div>
                       <div className={`text-sm font-medium mt-1 ${
                         today
-                          ? 'bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center mx-auto'
+                          ? 'bg-accent text-white w-7 h-7 rounded-full flex items-center justify-center mx-auto'
                           : 'text-gray-900 dark:text-gray-100'
                       }`}>
                         {date.getDate()}
@@ -716,7 +716,7 @@ export default function CalendarContent({
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={() => openEditEventModal(selectedEvent)}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+                  className="flex-1 px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg transition-colors font-medium"
                 >
                   Edit
                 </button>
@@ -803,7 +803,7 @@ export default function CalendarContent({
                     id="all-day"
                     checked={eventForm.allDay}
                     onChange={(e) => setEventForm({ ...eventForm, allDay: e.target.checked })}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-accent border-gray-300 rounded focus:ring-accent"
                   />
                   <label htmlFor="all-day" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                     All day event
@@ -906,7 +906,7 @@ export default function CalendarContent({
                 <button
                   onClick={handleSaveEvent}
                   disabled={!eventForm.title}
-                  className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="flex-1 px-4 py-2 bg-accent hover:opacity-90 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {selectedEvent ? 'Save Changes' : 'Create Event'}
                 </button>
