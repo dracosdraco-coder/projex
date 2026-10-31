@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { 
+import { createPortal } from 'react-dom'
+import {
   X, 
   MessageSquare, 
   FileText, 
@@ -101,7 +102,12 @@ export default function ProjectDetailModal({
     { id: 'calendar' as const, label: 'Events', badge: projectEvents.length },
   ]
 
-  return (
+  // Rendered via portal to escape the spatial canvas's transformed/clipped
+  // window container — otherwise `fixed` positions relative to that
+  // ancestor instead of the viewport and the modal drags with the window.
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" style={{ animation: 'popup-in 0.15s ease-out' }}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-[#1a1a1a] rounded-xl md:rounded-2xl w-full max-w-3xl max-h-[95vh] md:max-h-[85vh] mx-2 md:mx-0 flex flex-col shadow-2xl border border-gray-200 dark:border-[#2a2a2a]">
@@ -473,6 +479,7 @@ export default function ProjectDetailModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

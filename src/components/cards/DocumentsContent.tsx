@@ -49,6 +49,7 @@ export default function DocumentsContent({
   const [uploading, setUploading] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<Document | null>(null)
   const [dragActive, setDragActive] = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   const filtered = useMemo(() => {
     return documents.filter(d => {
@@ -68,11 +69,24 @@ export default function DocumentsContent({
   const handleFiles = async (files: FileList | File[]) => {
     if (!uploadProjectId) return
     setUploading(true)
+    setUploadError('')
+    let failures = 0
+    let lastErrorMessage = ''
     for (const file of Array.from(files)) {
-      await onUploadDocument?.(uploadProjectId, file, uploadType)
+      try {
+        await onUploadDocument?.(uploadProjectId, file, uploadType)
+      } catch (err: any) {
+        console.error('Document upload failed:', err)
+        failures++
+        lastErrorMessage = err?.message || 'Upload failed.'
+      }
     }
     setUploading(false)
-    setShowUpload(false)
+    if (failures > 0) {
+      setUploadError(`${failures} file${failures !== 1 ? 's' : ''} failed to upload: ${lastErrorMessage}`)
+    } else {
+      setShowUpload(false)
+    }
   }
 
   return (
@@ -138,6 +152,9 @@ export default function DocumentsContent({
               <input type="file" multiple className="hidden" onChange={e => e.target.files && handleFiles(e.target.files)} />
             </label>
           </div>
+          {uploadError && (
+            <p className="mt-3 text-xs text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{uploadError}</p>
+          )}
         </div>
       )}
 

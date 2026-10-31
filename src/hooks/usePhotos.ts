@@ -110,7 +110,7 @@ export function usePhotos(userId: string | undefined, orgId?: string | null) {
       return newPhoto
     } catch (err) {
       console.error('Failed to upload photo:', err)
-      return null
+      throw err
     }
   }, [userId, orgId])
 

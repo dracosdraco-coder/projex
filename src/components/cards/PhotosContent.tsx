@@ -22,6 +22,7 @@ export default function PhotosContent({ projects, photos: photosProp, onUploadPh
   const [uploadCaption, setUploadCaption] = useState('')
   const [uploadCategory, setUploadCategory] = useState('General')
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null)
   const [showReport, setShowReport] = useState(false)
   const [reportPhotos, setReportPhotos] = useState<Set<string>>(new Set())
@@ -38,6 +39,9 @@ export default function PhotosContent({ projects, photos: photosProp, onUploadPh
   const handleUpload = async () => {
     if (!selectedProject || previewFiles.length === 0) return
     setUploading(true)
+    setUploadError('')
+    let failures = 0
+    let lastErrorMessage = ''
     for (const { file, preview } of previewFiles) {
       try {
         if (onUploadPhoto) {
@@ -56,9 +60,18 @@ export default function PhotosContent({ projects, photos: photosProp, onUploadPh
             createdAt: new Date().toISOString()
           }, ...prev])
         }
-      } catch (err) { console.error('Upload failed:', err) }
+      } catch (err: any) {
+        console.error('Upload failed:', err)
+        failures++
+        lastErrorMessage = err?.message || 'Upload failed.'
+      }
     }
-    setUploading(false); setShowUpload(false); setPreviewFiles([]); setUploadCaption(''); setUploadCategory('General')
+    setUploading(false)
+    if (failures > 0) {
+      setUploadError(`${failures} photo${failures !== 1 ? 's' : ''} failed to upload: ${lastErrorMessage}`)
+    } else {
+      setShowUpload(false); setPreviewFiles([]); setUploadCaption(''); setUploadCategory('General')
+    }
   }
 
   const handleDeletePhoto = async (photo: Photo, e: React.MouseEvent) => {
@@ -300,8 +313,11 @@ export default function PhotosContent({ projects, photos: photosProp, onUploadPh
                 </div>
               </div>
             </div>
+            {uploadError && (
+              <p className="mt-3 text-xs text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">{uploadError}</p>
+            )}
             <div className="flex gap-3 mt-4">
-              <button onClick={() => { setShowUpload(false); setPreviewFiles([]) }} className="flex-1 px-4 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg">Cancel</button>
+              <button onClick={() => { setShowUpload(false); setPreviewFiles([]); setUploadError('') }} className="flex-1 px-4 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg">Cancel</button>
               <button onClick={handleUpload} disabled={uploading || !selectedProject} className="flex-1 px-4 py-2 text-sm text-white bg-gray-900 dark:bg-white dark:text-gray-900 rounded-lg font-medium disabled:opacity-50">
                 {uploading ? 'Uploading...' : `Upload ${previewFiles.length} Photo${previewFiles.length !== 1 ? 's' : ''}`}
               </button>

@@ -142,6 +142,16 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
+    // orgIdRef can still be null here if OrgProvider hasn't finished loading
+    // yet. The documents RLS insert policy requires org_id to match the
+    // user's org with no user_id fallback, so a null org_id always gets
+    // silently rejected — fetch it fresh from profiles to close that race.
+    let orgId = orgIdRef.current
+    if (!orgId) {
+      const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
+      orgId = profile?.org_id || null
+    }
+
     const timestamp = Date.now()
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const storagePath = `${user.id}/${projectId}/${timestamp}_${sanitizedName}`
@@ -154,7 +164,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { data: docRecord, error: dbError } = await supabase
       .from('documents')
       .insert([{
-        user_id: user.id, org_id: orgIdRef.current || undefined, project_id: projectId, name: file.name, type,
+        user_id: user.id, org_id: orgId || undefined, project_id: projectId, name: file.name, type,
         storage_path: storagePath, file_size: file.size, mime_type: file.type,
       }])
       .select()

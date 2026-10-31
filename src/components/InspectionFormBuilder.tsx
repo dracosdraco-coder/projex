@@ -101,9 +101,33 @@ export default function InspectionFormBuilder({ isOpen, onClose, onSave, documen
 
   const handleItemPhoto = (sid: string, iid: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return
+    e.target.value = ''
     const reader = new FileReader()
-    reader.onload = (ev) => updateItem(sid, iid, 'photo', ev.target?.result as string)
-    reader.readAsDataURL(file); e.target.value = ''
+    reader.onerror = () => setSaveError('Could not read that photo — try a different image.')
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string
+      const img = new Image()
+      img.onerror = () => setSaveError('Could not process that photo — try a different image.')
+      img.onload = () => {
+        // Downscale/compress full-res camera photos so they don't silently
+        // fail or bloat the saved JSON (mobile camera photos are often 3-8MB).
+        const maxDim = 1600
+        let { width, height } = img
+        if (width > maxDim || height > maxDim) {
+          const scale = maxDim / Math.max(width, height)
+          width = Math.round(width * scale)
+          height = Math.round(height * scale)
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width; canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { updateItem(sid, iid, 'photo', dataUrl); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        updateItem(sid, iid, 'photo', canvas.toDataURL('image/jpeg', 0.75))
+      }
+      img.src = dataUrl
+    }
+    reader.readAsDataURL(file)
   }
 
   const handleSave = async () => {
