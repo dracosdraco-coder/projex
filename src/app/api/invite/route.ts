@@ -1,46 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser, escapeHtml } from '@/lib/auth-server'
 import nodemailer from 'nodemailer'
 
 // Seat limits per plan — counts the owner + team members
+// Owners are created with the org, never invited
+const ASSIGNABLE_ROLES = ['admin', 'manager', 'supervisor', 'worker', 'viewer']
+
 const PLAN_SEAT_LIMITS: Record<string, number> = {
   free: 1, duo: 2, team: 5, business: 10, enterprise: 20,
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!supaUrl || !supaKey) {
-      return NextResponse.json({ error: 'Server config error' }, { status: 500 })
+    const { ctx, error } = await requireUser({ roles: ['owner', 'admin'] })
+    if (error) return error
+
+    const supabase = ctx.admin
+    const userId = ctx.user.id
+    const orgId = ctx.orgId!
+    const { memberName, memberEmail, memberRole } = await req.json()
+
+    if (typeof memberEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(memberEmail.trim())) {
+      return NextResponse.json({ error: 'A valid email is required' }, { status: 400 })
+    }
+    if (memberRole && !ASSIGNABLE_ROLES.includes(memberRole)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    const supabase = createClient(supaUrl, supaKey)
-    const { userId, memberName, memberEmail, memberRole } = await req.json()
-
-    if (!userId || !memberEmail) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
-
-    // Get admin's org first
-    const { data: profile, error: profileErr } = await supabase
+    const { data: profile } = await supabase
       .from('profiles')
-      .select('org_id, full_name')
+      .select('full_name')
       .eq('id', userId)
       .single()
 
-    console.log('Invite debug:', { userId, profile, profileErr })
+    const { data: org } = await supabase.from('organizations').select('name').eq('id', orgId).single()
 
-    const orgId = profile?.org_id
-    if (!orgId) {
-      return NextResponse.json({ 
-        error: 'No organization found. Please contact support.', 
-        debug: { userId, hasProfile: !!profile, orgId: profile?.org_id, profileErr: profileErr?.message }
-      }, { status: 400 })
-    }
-
-    const inviterName = profile?.full_name || 'Your team admin'
-    const companyName = 'their team'
+    const inviterName = escapeHtml(profile?.full_name || 'Your team admin')
+    const companyName = escapeHtml(org?.name || 'their team')
+    const roleLabel = escapeHtml(memberRole || 'team member')
 
     // Get admin's subscription to check seat limits
     // First try org-level, then user-level
@@ -102,7 +99,7 @@ export async function POST(req: NextRequest) {
       .upsert({
         org_id: orgId,
         email: normalizedEmail,
-        name: memberName || memberEmail.split('@')[0],
+        name: (typeof memberName === 'string' && memberName.trim()) || normalizedEmail.split('@')[0],
         role: memberRole || 'worker',
         status: 'pending',
         invited_by: userId,
@@ -110,6 +107,7 @@ export async function POST(req: NextRequest) {
 
     if (memberErr) {
       console.error('Failed to create org member:', memberErr)
+      return NextResponse.json({ error: 'Could not add this member. Please try again.' }, { status: 500 })
     }
 
     // If the invited user already has an account, activate immediately
@@ -150,8 +148,8 @@ export async function POST(req: NextRequest) {
 
         await transporter.sendMail({
           from: process.env.SMTP_FROM || smtpUser,
-          to: memberEmail,
-          subject: `${inviterName} invited you to join ${companyName} on Projex`,
+          to: normalizedEmail,
+          subject: `${profile?.full_name || 'Your team admin'} invited you to join ${org?.name || 'their team'} on Projex`,
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 20px;">
               <div style="text-align: center; margin-bottom: 32px;">
@@ -160,7 +158,7 @@ export async function POST(req: NextRequest) {
               <div style="background: #fafafa; border-radius: 12px; padding: 32px; border: 1px solid #e5e5e5;">
                 <h2 style="font-size: 18px; font-weight: 600; color: #111; margin: 0 0 8px 0;">You've been invited</h2>
                 <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
-                  <strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Projex as a <strong>${memberRole || 'team member'}</strong>.
+                  <strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Projex as a <strong>${roleLabel}</strong>.
                 </p>
                 <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
                   You don't need your own subscription — just sign up and you'll be added to the team automatically.
@@ -174,7 +172,7 @@ export async function POST(req: NextRequest) {
               </p>
             </div>
           `,
-          text: `${inviterName} invited you to join ${companyName} on Projex as a ${memberRole || 'team member'}. You don't need your own subscription. Sign up at ${appUrl}/login`,
+          text: `${profile?.full_name || 'Your team admin'} invited you to join ${org?.name || 'their team'} on Projex as a ${memberRole || 'team member'}. You don't need your own subscription. Sign up at ${appUrl}/login`,
         })
         emailSent = true
       } catch (emailErr: any) {

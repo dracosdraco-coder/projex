@@ -1,22 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/auth-server'
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
-    const stripeKey = process.env.STRIPE_SECRET_KEY
-    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const { ctx, error } = await requireUser()
+    if (error) return error
 
-    if (!stripeKey || !supaUrl || !supaKey) {
+    const stripeKey = process.env.STRIPE_SECRET_KEY
+    if (!stripeKey) {
       return NextResponse.json({ error: 'Server config error' }, { status: 500 })
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-12-18.acacia' as any })
-    const supabase = createClient(supaUrl, supaKey)
-    const { userId } = await req.json()
-
-    if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+    const supabase = ctx.admin
+    const userId = ctx.user.id
 
     // Get stripe customer ID
     const { data: sub } = await supabase

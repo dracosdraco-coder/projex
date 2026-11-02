@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://projex.live/terms' },
 }
 
-const LAST_UPDATED = 'April 7, 2026'
+const LAST_UPDATED = 'November 1, 2026'
 const COMPANY = 'Projex'
 const SITE = 'projex.live'
 const CONTACT_EMAIL = 'legal@projex.live'
@@ -43,7 +43,7 @@ export default function TermsPage() {
 
         {/* Intro */}
         <div className="bg-[#18181b] border border-[#27272a] rounded-2xl p-6 mb-10 text-sm text-zinc-300 leading-relaxed">
-          By accessing or using <strong className="text-white">{SITE}</strong> or any {COMPANY} service (including SMS, voice, and in-app communications), you agree to be bound by these Terms of Service. If you do not agree, do not use our services.
+          By accessing or using <strong className="text-white">{SITE}</strong> or any {COMPANY} service (including email and in-app communications), you agree to be bound by these Terms of Service. If you do not agree, do not use our services.
         </div>
 
         <div className="space-y-10 text-sm text-zinc-300 leading-[1.85]">
@@ -71,7 +71,7 @@ export default function TermsPage() {
                 'Estimating, invoicing, and budgeting features',
                 'Client portal and communication hub',
                 'Team management and role-based access controls',
-                'SMS and voice communication via Twilio-powered VoIP',
+                'Email and in-app team messaging',
                 'Document generation, photo reporting, and drawing tools',
                 'Stripe-based subscription billing and payment processing',
                 'Third-party integrations and API access',
@@ -95,53 +95,25 @@ export default function TermsPage() {
             </p>
           </section>
 
-          {/* 4 — SMS/Voice — Critical for Twilio */}
+          {/* 4 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">4. SMS & Voice Communication Services</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">4. Messaging & Email Communications</h2>
             <p className="text-zinc-200 font-medium mb-3">
-              {COMPANY} uses Twilio, Inc. to provide SMS messaging and voice calling features within the platform. By using these features, you agree to the following:
+              The Service lets you send email to your clients and team and message your team inside the platform. By using these features, you agree to the following:
             </p>
 
             <div className="space-y-4">
               <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">4.1 Consent to Receive Communications</h3>
+                <h3 className="text-white font-semibold mb-2">4.1 Permitted Use of Messaging</h3>
                 <p>
-                  By providing a phone number and using our SMS or voice features, you consent to receive transactional and operational messages from {COMPANY}. These may include project updates, appointment reminders, invoice notifications, and team communications. Standard message and data rates may apply.
+                  You may only use our email and messaging features to communicate with individuals who have agreed to receive communications from you. You are solely responsible for obtaining all required consents from your recipients. You may not use our messaging features to send spam, unsolicited marketing messages, or any content that violates applicable law.
                 </p>
               </div>
 
               <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">4.2 Permitted Use of Messaging</h3>
+                <h3 className="text-white font-semibold mb-2">4.2 Prohibited Content</h3>
                 <p>
-                  You may only use our SMS and voice features to communicate with individuals who have explicitly consented to receive communications from you. You are solely responsible for obtaining all required consents from your recipients. You may not use our messaging features to send spam, unsolicited marketing messages, or any content that violates applicable law.
-                </p>
-              </div>
-
-              <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">4.3 Opt-Out</h3>
-                <p>
-                  Recipients may opt out of SMS communications at any time by replying <strong className="text-white">STOP</strong> to any message. Upon receipt of a STOP request, we will cease sending messages to that number. Recipients may reply <strong className="text-white">HELP</strong> for assistance or contact us at <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-400 hover:underline">{CONTACT_EMAIL}</a>.
-                </p>
-              </div>
-
-              <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">4.4 Prohibited Content</h3>
-                <p>
-                  You may not use our messaging services to transmit content that is: illegal, abusive, harassing, threatening, fraudulent, deceptive, defamatory, obscene, or that violates any third-party rights. We reserve the right to suspend messaging access for any user who violates this policy.
-                </p>
-              </div>
-
-              <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">4.5 Twilio Terms</h3>
-                <p>
-                  SMS and voice services are provided in part by Twilio Inc. Your use of these features is also subject to Twilio&apos;s{' '}
-                  <a href="https://www.twilio.com/en-us/legal/tos" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                    Terms of Service
-                  </a>{' '}
-                  and{' '}
-                  <a href="https://www.twilio.com/en-us/legal/aup" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                    Acceptable Use Policy
-                  </a>.
+                  You may not use our messaging services to transmit content that is: illegal, abusive, harassing, threatening, fraudulent, deceptive, defamatory, obscene, or that violates any third-party rights. We may limit sending volume and reserve the right to suspend messaging access for any user who violates this policy.
                 </p>
               </div>
             </div>

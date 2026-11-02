@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { safeEqual } from '@/lib/auth-server'
 
 // ─── Google Ads Lead Form Webhook ───────────────────────────────────────────
 //
@@ -29,15 +30,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const orgId = req.nextUrl.searchParams.get('org')
-    const incomingKey = req.nextUrl.searchParams.get('key')
     const expectedKey = process.env.GOOGLE_ADS_WEBHOOK_KEY
 
-    // Verify webhook key if configured
-    if (expectedKey && incomingKey !== expectedKey) {
-      return NextResponse.json({ error: 'Invalid webhook key' }, { status: 403 })
+    // Without a key anyone could inject leads into any org
+    if (!expectedKey) {
+      return NextResponse.json({ error: 'Webhook not configured' }, { status: 503 })
     }
 
     const body = await req.json()
+
+    // Google sends the key as google_key in the body; ?key= is also accepted
+    const incomingKey = req.nextUrl.searchParams.get('key') || body.google_key || ''
+    if (!safeEqual(String(incomingKey), expectedKey)) {
+      return NextResponse.json({ error: 'Invalid webhook key' }, { status: 403 })
+    }
 
     // Parse Google Ads field columns into a flat map
     const cols: Record<string, string> = {}

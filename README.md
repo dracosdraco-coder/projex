@@ -7,7 +7,6 @@ Project management and CRM SaaS for construction and service businesses.
 - Next.js 16 (App Router), React 18, TypeScript, Tailwind CSS
 - Supabase: Postgres, Auth, Row Level Security, Storage
 - Stripe: subscriptions and add-ons
-- Twilio: VoIP and SMS
 - Nodemailer: SMTP email
 - Google Calendar and QuickBooks OAuth integrations
 - Deployed on Vercel
@@ -17,7 +16,7 @@ Project management and CRM SaaS for construction and service businesses.
 ```
 src/app/page.tsx          Marketing landing page
 src/app/access/           Main app (auth-protected spatial canvas / window manager)
-src/app/api/              API routes (Stripe, email, VoIP, invites, integrations)
+src/app/api/              API routes (Stripe, email, invites, integrations)
 src/app/portal/           Public client portal
 src/components/cards/     One component per app card (Projects, Tasks, Documents, ...)
 src/hooks/                Data fetching and state (Supabase queries live here)

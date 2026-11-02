@@ -312,13 +312,17 @@ export default function LeadGenContent({ leads: leadsProp = [], onCreateLead, on
               <div className="flex gap-2">
                 {selectedLead.email && onSendEmail && (
                   <button onClick={async () => {
-                    await onSendEmail({
-                      to: selectedLead.email,
-                      subject: `Following up — ${selectedLead.company || selectedLead.name}`,
-                      html: `<p>Hi ${selectedLead.name.split(' ')[0]},</p><p>I wanted to follow up on our recent conversation. Do you have any questions or would you like to move forward?</p><p>Best regards</p>`,
-                      text: `Hi ${selectedLead.name.split(' ')[0]}, I wanted to follow up. Do you have any questions?`,
-                    })
-                    updateLeadStatus(selectedLead.id, selectedLead.status === 'new' ? 'contacted' : selectedLead.status)
+                    try {
+                      await onSendEmail({
+                        to: selectedLead.email,
+                        subject: `Following up — ${selectedLead.company || selectedLead.name}`,
+                        html: `<p>Hi ${selectedLead.name.split(' ')[0]},</p><p>I wanted to follow up on our recent conversation. Do you have any questions or would you like to move forward?</p><p>Best regards</p>`,
+                        text: `Hi ${selectedLead.name.split(' ')[0]}, I wanted to follow up. Do you have any questions?`,
+                      })
+                      updateLeadStatus(selectedLead.id, selectedLead.status === 'new' ? 'contacted' : selectedLead.status)
+                    } catch (err: any) {
+                      alert(err?.message || 'Email failed to send')
+                    }
                   }}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-blue-600 text-white rounded-lg text-xs font-medium">
                     <Mail className="w-3.5 h-3.5" /> Email

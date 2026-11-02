@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/auth-server'
 
 async function refreshQBToken(supabase: any, orgId: string, clientId: string, clientSecret: string) {
   const { data: integ } = await supabase
@@ -36,8 +36,11 @@ async function refreshQBToken(supabase: any, orgId: string, clientId: string, cl
 
 export async function POST(req: NextRequest) {
   try {
-    const { orgId, syncType = 'invoices' } = await req.json()
-    if (!orgId) return NextResponse.json({ error: 'Missing orgId' }, { status: 400 })
+    const { ctx, error } = await requireUser({ requireOrg: true })
+    if (error) return error
+
+    const orgId = ctx.orgId!
+    const { syncType = 'invoices' } = await req.json()
 
     const clientId = process.env.QB_CLIENT_ID!
     const clientSecret = process.env.QB_CLIENT_SECRET!
@@ -46,10 +49,7 @@ export async function POST(req: NextRequest) {
       ? 'https://sandbox-quickbooks.api.intuit.com'
       : 'https://quickbooks.api.intuit.com'
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const supabase = ctx.admin
 
     const { data: integ } = await supabase
       .from('integrations')

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/auth-server'
 
 async function refreshGoogleToken(supabase: any, orgId: string) {
   const { data: integ } = await supabase
@@ -37,13 +37,13 @@ async function refreshGoogleToken(supabase: any, orgId: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { orgId, syncType = 'projects' } = await req.json()
-    if (!orgId) return NextResponse.json({ error: 'Missing orgId' }, { status: 400 })
+    const { ctx, error } = await requireUser({ requireOrg: true })
+    if (error) return error
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const orgId = ctx.orgId!
+    const { syncType = 'projects' } = await req.json()
+
+    const supabase = ctx.admin
 
     const { data: integ } = await supabase
       .from('integrations')

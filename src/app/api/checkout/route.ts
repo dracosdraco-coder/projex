@@ -1,25 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/auth-server'
 
 export async function POST(req: NextRequest) {
   try {
-    const stripeKey = process.env.STRIPE_SECRET_KEY
-    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    const { ctx, error } = await requireUser()
+    if (error) return error
 
-    if (!stripeKey || !supaUrl || !supaKey) {
-      console.error('Checkout missing env vars:', { hasStripe: !!stripeKey, hasSupaUrl: !!supaUrl, hasSupaKey: !!supaKey })
+    const stripeKey = process.env.STRIPE_SECRET_KEY
+    if (!stripeKey) {
+      console.error('Checkout missing STRIPE_SECRET_KEY')
       return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 })
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-12-18.acacia' as any })
-    const supabase = createClient(supaUrl, supaKey)
+    const supabase = ctx.admin
+    const userId = ctx.user.id
+    const userEmail = ctx.user.email
 
-    const { userId, userEmail, planId, interval } = await req.json()
+    const { planId, interval } = await req.json()
 
-    if (!userId || !userEmail || !planId) {
+    if (!userEmail || typeof planId !== 'string' || !/^[a-z]+$/.test(planId)) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+    if (interval && interval !== 'monthly' && interval !== 'annual') {
+      return NextResponse.json({ error: 'Invalid interval' }, { status: 400 })
     }
 
     // Resolve price ID server-side from env vars

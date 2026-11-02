@@ -22,7 +22,7 @@ export function useSubscription() {
   useEffect(() => {
     if (!user?.id) { setSub((s: SubscriptionState) => ({ ...s, loading: false })); return }
     
-    fetch(`/api/subscription?userId=${user.id}`)
+    fetch('/api/subscription')
       .then((r: Response) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
@@ -62,7 +62,7 @@ export function useSubscription() {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, userEmail: user.email, planId, interval }),
+        body: JSON.stringify({ planId, interval }),
       })
       if (!res.ok) {
         const text = await res.text()

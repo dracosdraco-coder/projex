@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser } from '@/lib/auth-server'
 
 // Add-on price IDs — set these in Vercel env vars
 // STRIPE_ADDON_AI_ESTIMATING, STRIPE_ADDON_ADVANCED_REPORTS, etc.
@@ -15,18 +15,19 @@ const ADDON_ENV_MAP: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
+    const { ctx, error } = await requireUser()
+    if (error) return error
+
     const stripeKey = process.env.STRIPE_SECRET_KEY
     if (!stripeKey) return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 })
 
     const stripe = new Stripe(stripeKey, { apiVersion: '2024-12-18.acacia' as any })
-    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!supaUrl || !supaKey) return NextResponse.json({ error: 'Server config error' }, { status: 500 })
+    const supabase = ctx.admin
+    const userId = ctx.user.id
+    const userEmail = ctx.user.email
+    const { addonId } = await req.json()
 
-    const supabase = createClient(supaUrl, supaKey)
-    const { userId, userEmail, addonId } = await req.json()
-
-    if (!userId || !addonId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+    if (!addonId) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
 
     // Get price ID from env
     const envKey = ADDON_ENV_MAP[addonId]

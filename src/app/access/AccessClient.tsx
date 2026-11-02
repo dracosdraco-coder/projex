@@ -102,7 +102,6 @@ import Onboarding, { HelpButton } from '@/components/Onboarding'
 import { useSubscription } from '@/hooks/useSubscription'
 import { useLeads } from '@/hooks/useLeads'
 import { usePhotos } from '@/hooks/usePhotos'
-import { useCommsLogs } from '@/hooks/useCommsLogs'
 import { meetsMinimumPlan, CARD_PLAN_REQUIREMENTS, PlanId } from '@/lib/stripe-plans'
 
 const DOCK_HEIGHT = 60
@@ -294,14 +293,24 @@ export default function AccessClient() {
   const { notifications, unreadCount, markRead, markAllRead, dismiss: dismissNotification, notify } = useNotifications(user?.id)
   const { leads, loadLeads, createLead, updateLead: updateLeadHook, deleteLead } = useLeads(user?.id, orgId)
   const { photos, loadPhotos, uploadPhoto, deletePhoto } = usePhotos(user?.id, orgId)
-  const { logs: commsLogs, loadLogs: loadCommsLogs, addLog: addCommsLog } = useCommsLogs(user?.id, orgId)
 
-  // Load leads, photos, commsLogs once user/org is available
+  const sendEmail = async (data: { to: string; cc?: string; subject: string; html: string; text: string }) => {
+    const res = await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      throw new Error(body.error || 'Email failed to send')
+    }
+  }
+
+  // Load leads and photos once user/org is available
   useEffect(() => {
     if (user?.id) {
       loadLeads()
       loadPhotos()
-      loadCommsLogs()
     }
   }, [user?.id, orgId])
 
@@ -309,15 +318,13 @@ export default function AccessClient() {
   useRealtime({
     userId: user?.id,
     orgId,
-    tables: ['projects', 'tasks', 'generated_documents', 'messages', 'notifications', 'team_members', 'org_members', 'leads', 'photos', 'comms_logs'],
+    tables: ['projects', 'tasks', 'generated_documents', 'messages', 'notifications', 'team_members', 'org_members', 'leads', 'photos'],
     enabled: !!user?.id,
     onEvent: (event) => {
       if (event.table === 'leads') {
         loadLeads()
       } else if (event.table === 'photos') {
         loadPhotos()
-      } else if (event.table === 'comms_logs') {
-        loadCommsLogs()
       } else if (event.table !== 'notifications') {
         refetch()
       }
@@ -1310,18 +1317,7 @@ case 'maps':
       case 'comms':
         return (
           <CommsHubContent
-            contacts={[]}
-            teamMembers={teamMembers}
-            projects={projects}
-            commsLogs={commsLogs}
-            onAddCommsLog={addCommsLog}
-            onSendEmail={async (data) => {
-              await fetch('/api/send-email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-              })
-            }}
+            onSendEmail={sendEmail}
           />
         )
 
@@ -1332,13 +1328,7 @@ case 'maps':
             onCreateLead={createLead}
             onUpdateLead={updateLeadHook}
             onDeleteLead={deleteLead}
-            onSendEmail={async (data) => {
-              await fetch('/api/send-email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-              })
-            }}
+            onSendEmail={sendEmail}
           />
         )
 

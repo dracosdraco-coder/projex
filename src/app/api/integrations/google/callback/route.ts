@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser, verifyState } from '@/lib/auth-server'
 
 export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://projex.live'
@@ -12,11 +12,13 @@ export async function GET(req: NextRequest) {
     if (error) return NextResponse.redirect(`${appUrl}/access?error=google_auth_denied`)
     if (!code) return NextResponse.redirect(`${appUrl}/access?error=google_missing_code`)
 
-    let userId = '', orgId = ''
-    try {
-      const parsed = JSON.parse(Buffer.from(stateRaw, 'base64').toString())
-      userId = parsed.userId; orgId = parsed.orgId
-    } catch {}
+    // State is HMAC-signed by /connect and must belong to whoever is completing the flow
+    const state = verifyState(stateRaw)
+    const { ctx } = await requireUser({ roles: ['owner', 'admin'] })
+    if (!state || !ctx || ctx.user.id !== state.userId || ctx.orgId !== state.orgId) {
+      return NextResponse.redirect(`${appUrl}/access?error=google_invalid_state`)
+    }
+    const { userId, orgId } = state
 
     const clientId = process.env.GOOGLE_CLIENT_ID!
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET!
@@ -45,10 +47,7 @@ export async function GET(req: NextRequest) {
       ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
       : null
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const supabase = ctx.admin
 
     await supabase.from('integrations').upsert({
       user_id: userId,

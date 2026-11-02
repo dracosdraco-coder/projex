@@ -25,11 +25,6 @@ const SECTIONS = [
     icon: '💳',
   },
   {
-    id: 'twilio',
-    label: 'SMS & VoIP (Twilio)',
-    icon: '📡',
-  },
-  {
     id: 'projects',
     label: 'Projects & Tasks',
     icon: '📁',
@@ -210,7 +205,7 @@ export default function DocsPage() {
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3">Documentation</p>
             <h1 className="text-4xl md:text-5xl font-bold tracking-[-0.03em] mb-4">Projex Docs</h1>
             <p className="text-zinc-400 text-lg leading-relaxed">
-              Everything you need to set up, configure, and operate the Projex platform — from database to Twilio to production deployment.
+              Everything you need to set up, configure, and operate the Projex platform — from database to billing to production deployment.
             </p>
           </div>
 
@@ -224,7 +219,6 @@ export default function DocsPage() {
               { label: 'Database', value: 'Supabase (PostgreSQL)' },
               { label: 'Auth', value: 'Supabase Auth' },
               { label: 'Payments', value: 'Stripe' },
-              { label: 'SMS / VoIP', value: 'Twilio' },
               { label: 'Email', value: 'Resend + Nodemailer' },
               { label: 'Deployment', value: 'Vercel' },
               { label: 'PDFs / Docs', value: 'jsPDF + docx' },
@@ -335,80 +329,6 @@ Redirect URLs:  https://projex.live/**
             Your Stripe webhook endpoint must be set to <Code>https://projex.live/api/webhooks/stripe</Code> in the Stripe dashboard. Verify the <Code>STRIPE_WEBHOOK_SECRET</Code> matches your endpoint signing secret.
           </Note>
 
-          {/* ─── TWILIO ─── */}
-          <H2 id="twilio">SMS & VoIP (Twilio)</H2>
-          <P>
-            Projex integrates Twilio for outbound/inbound SMS and voice calling via the Communications Hub. All Twilio interactions go through <Code>src/app/api/voip/</Code>.
-          </P>
-
-          <H3>API Routes</H3>
-          <div className="space-y-3 my-4">
-            {[
-              { route: 'POST /api/voip', desc: 'Main handler. Accepts action: send_sms | make_call | get_logs | bulk_sms' },
-              { route: 'POST /api/voip/twiml', desc: 'TwiML response for outbound calls. Plays greeting then connects.' },
-              { route: 'POST /api/voip/status', desc: 'Call status callback from Twilio (initiated, ringing, answered, completed).' },
-              { route: 'POST /api/voip/webhook', desc: 'Handles inbound SMS and inbound calls. Auto-replies to SMS, records voicemail for calls.' },
-            ].map(({ route, desc }) => (
-              <div key={route} className="bg-[#18181b] border border-[#27272a] rounded-xl p-4">
-                <p className="font-mono text-sm text-emerald-400 mb-1">{route}</p>
-                <p className="text-sm text-zinc-400">{desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <H3>Twilio Setup Steps</H3>
-          <Step n={1} title="Create a Twilio account">
-            Sign up at <a href="https://twilio.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">twilio.com</a> and purchase a phone number with SMS and Voice capabilities.
-          </Step>
-          <Step n={2} title="Add environment variables">
-            Add <Code>TWILIO_ACCOUNT_SID</Code>, <Code>TWILIO_AUTH_TOKEN</Code>, and <Code>TWILIO_PHONE_NUMBER</Code> to your Vercel environment variables.
-          </Step>
-          <Step n={3} title="Configure webhook URLs in Twilio">
-            In your Twilio console → Phone Numbers → your number → configure:
-            <CodeBlock>{`Inbound SMS Webhook:   POST https://projex.live/api/voip/webhook
-Inbound Voice Webhook: POST https://projex.live/api/voip/webhook`}</CodeBlock>
-          </Step>
-          <Step n={4} title="Submit for Twilio compliance">
-            For production use, complete Twilio's A2P 10DLC registration (for US business SMS). You will need:
-            <ul className="mt-2 space-y-1">
-              <li className="flex items-start gap-2"><span className="text-zinc-600">—</span><span>Business name and EIN</span></li>
-              <li className="flex items-start gap-2"><span className="text-zinc-600">—</span><span>Use case description (transactional / notifications)</span></li>
-              <li className="flex items-start gap-2"><span className="text-zinc-600">—</span><span>Links to your Terms of Service and Privacy Policy (see below)</span></li>
-              <li className="flex items-start gap-2"><span className="text-zinc-600">—</span><span>Opt-in/opt-out language</span></li>
-            </ul>
-          </Step>
-
-          <Note type="tip">
-            Your Terms of Service (<Code>projex.live/terms</Code>) and Privacy Policy (<Code>projex.live/privacy</Code>) are already live and contain all required Twilio compliance language including opt-out instructions, prohibited content, and data handling disclosures.
-          </Note>
-
-          <H3>Sending an SMS (API Reference)</H3>
-          <CodeBlock label="Send SMS">{`POST /api/voip
-Content-Type: application/json
-
-{
-  "action": "send_sms",
-  "to": "+13055551234",
-  "message": "Your project update from Projex."
-}`}</CodeBlock>
-
-          <CodeBlock label="Make a Call">{`POST /api/voip
-Content-Type: application/json
-
-{
-  "action": "make_call",
-  "to": "+13055551234"
-}`}</CodeBlock>
-
-          <CodeBlock label="Bulk SMS">{`POST /api/voip
-Content-Type: application/json
-
-{
-  "action": "bulk_sms",
-  "recipients": "+13055551234, +13055556789",
-  "message": "Project milestone reached."
-}`}</CodeBlock>
-
           {/* ─── PROJECTS ─── */}
           <H2 id="projects">Projects & Tasks</H2>
           <P>Projects are the core unit of Projex. Each project belongs to an organization and contains tasks, documents, photos, budgets, and schedule data.</P>
@@ -440,17 +360,15 @@ Content-Type: application/json
           {/* ─── COMMS ─── */}
           <H2 id="comms">Communications Hub</H2>
           <P>
-            The Communications Hub (<Code>CommsHubContent.tsx</Code>) is the central interface for all SMS, VoIP, and team messaging. It pulls from <Code>/api/voip</Code> for call/SMS logs and uses Twilio under the hood.
+            The Communications Hub (<Code>CommsHubContent.tsx</Code>) handles outbound email to clients and team. Email is sent through <Code>POST /api/send-email</Code> (SMTP via Nodemailer), which requires a signed-in org member and is rate-limited per organization. Team chat lives in the Messages card.
           </P>
 
           <H3>Features</H3>
           <ul className="space-y-1.5 my-4">
             {[
-              'Send individual and bulk SMS to contacts',
-              'Initiate outbound voice calls directly from the browser',
-              'View full call and SMS logs with status and direction',
-              'Inbound call handling with voicemail recording',
-              'Auto-reply to inbound SMS with TwiML',
+              'Compose and send email with Cc',
+              'Reusable email templates (invoice, reminder, update, welcome, follow-up)',
+              'Bulk send a template to multiple recipients',
             ].map(item => (
               <li key={item} className="flex items-start gap-2.5 text-sm text-zinc-400">
                 <span className="text-emerald-500 mt-0.5">✓</span>
@@ -460,7 +378,7 @@ Content-Type: application/json
           </ul>
 
           <Note type="info">
-            Call logs and SMS history are pulled live from Twilio (last 50 of each). They are not persisted in your Supabase database by default. To persist them, extend the <Code>/api/voip/status</Code> and <Code>/api/voip/webhook</Code> routes to write to a <Code>comms_logs</Code> table.
+            Calls and SMS are coming soon.
           </Note>
 
           {/* ─── CLIENT PORTAL ─── */}
@@ -560,11 +478,6 @@ STRIPE_PRICE_BUSINESS_ANNUAL=price_...
 STRIPE_PRICE_ENTERPRISE_MONTHLY=price_...
 STRIPE_PRICE_ENTERPRISE_ANNUAL=price_...
 
-# ─── Twilio ──────────────────────────────────────────
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
-
 # ─── Email ───────────────────────────────────────────
 RESEND_API_KEY=re_...
 SMTP_HOST=smtp.your-provider.com    # If using Nodemailer
@@ -581,19 +494,19 @@ NEXT_PUBLIC_APP_URL=https://projex.live`}</CodeBlock>
 
           {/* ─── LEGAL ─── */}
           <H2 id="legal">Legal & Compliance</H2>
-          <P>Projex maintains the following legal pages required for Twilio A2P compliance, app store submissions, and general business operation.</P>
+          <P>Projex maintains the following legal pages required for app store submissions and general business operation.</P>
 
           <div className="space-y-3 my-4">
             {[
               {
                 label: 'Terms of Service',
                 url: '/terms',
-                desc: 'User agreement covering acceptable use, SMS/VoIP use, billing, IP, and liability. Required by Twilio for A2P registration.',
+                desc: 'User agreement covering acceptable use, billing, IP, and liability.',
               },
               {
                 label: 'Privacy Policy',
                 url: '/privacy',
-                desc: 'Data collection, use, retention, and opt-out disclosures. Covers Twilio SMS data handling. Required for App Store and Twilio.',
+                desc: 'Data collection, use, retention, and opt-out disclosures. Required for App Store.',
               },
             ].map(({ label, url, desc }) => (
               <div key={label} className="bg-[#18181b] border border-[#27272a] rounded-xl p-5 flex items-start gap-4">
@@ -613,27 +526,6 @@ NEXT_PUBLIC_APP_URL=https://projex.live`}</CodeBlock>
               </div>
             ))}
           </div>
-
-          <H3>Twilio A2P 10DLC Checklist</H3>
-          <ul className="space-y-2 my-4">
-            {[
-              { done: true, item: 'Terms of Service live at projex.live/terms' },
-              { done: true, item: 'Privacy Policy live at projex.live/privacy' },
-              { done: true, item: 'STOP opt-out language in ToS (Section 4.3) and Privacy Policy (Section 3.3)' },
-              { done: true, item: 'HELP keyword support documented' },
-              { done: true, item: 'Twilio Acceptable Use Policy linked in ToS (Section 4.5)' },
-              { done: false, item: 'Complete Brand Registration in Twilio console' },
-              { done: false, item: 'Submit Campaign (use case: Mixed/Business Updates)' },
-              { done: false, item: 'Associate phone number with approved campaign' },
-            ].map(({ done, item }) => (
-              <li key={item} className="flex items-start gap-3 text-sm">
-                <span className={`mt-0.5 font-bold ${done ? 'text-emerald-400' : 'text-zinc-600'}`}>
-                  {done ? '✓' : '○'}
-                </span>
-                <span className={done ? 'text-zinc-300' : 'text-zinc-500'}>{item}</span>
-              </li>
-            ))}
-          </ul>
 
         </main>
       </div>

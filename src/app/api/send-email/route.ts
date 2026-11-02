@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import { requireUser } from '@/lib/auth-server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
+    const { ctx, error } = await requireUser({ requireOrg: true })
+    if (error) return error
+
     const host = process.env.SMTP_HOST
     const port = parseInt(process.env.SMTP_PORT || '587')
     const user = process.env.SMTP_USER
@@ -18,6 +23,12 @@ export async function POST(req: NextRequest) {
 
     if (!to || !subject) {
       return NextResponse.json({ error: 'Missing to or subject' }, { status: 400 })
+    }
+
+    const recipients = [to, cc].flat().filter(Boolean).flatMap((r: string) => String(r).split(',')).length
+    const limit = await checkRateLimit(ctx.admin, ctx.orgId!, 'email', { cost: recipients })
+    if (!limit.allowed) {
+      return NextResponse.json({ error: 'Hourly email limit reached. Try again later.', code: 'RATE_LIMIT' }, { status: 429 })
     }
 
     const transporter = nodemailer.createTransport({

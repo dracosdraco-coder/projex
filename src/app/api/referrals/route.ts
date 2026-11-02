@@ -1,22 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { requireUser, getAdminClient } from '@/lib/auth-server'
 
-export async function GET(req: NextRequest) {
+const EMPTY_STATS = { sent: 0, joined: 0, converted: 0 }
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Stats for the signed-in user's own referrals
+export async function GET() {
   try {
-    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!supaUrl || !supaKey) return NextResponse.json({ sent: 0, joined: 0, converted: 0 })
+    const { ctx, error } = await requireUser()
+    if (error) return error
 
-    const supabase = createClient(supaUrl, supaKey)
-    const userId = req.nextUrl.searchParams.get('userId')
-    if (!userId) return NextResponse.json({ sent: 0, joined: 0, converted: 0 })
-
-    const { data } = await supabase
+    const { data } = await ctx.admin
       .from('referrals')
       .select('status')
-      .eq('referrer_id', userId)
+      .eq('referrer_id', ctx.user.id)
 
-    const stats = { sent: 0, joined: 0, converted: 0 }
+    const stats = { ...EMPTY_STATS }
     ;(data || []).forEach((r: any) => {
       stats.sent++
       if (r.status === 'joined' || r.status === 'converted') stats.joined++
@@ -25,53 +25,38 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(stats)
   } catch {
-    return NextResponse.json({ sent: 0, joined: 0, converted: 0 })
+    return NextResponse.json(EMPTY_STATS)
   }
 }
 
+// Record a referral at signup. The new user has no session yet (email confirmation),
+// so this stays unauthenticated — it can only create a 'sent' row for a real referrer,
+// once per email. Status changes to joined/converted happen server-side only.
 export async function POST(req: NextRequest) {
   try {
-    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supaKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-    if (!supaUrl || !supaKey) return NextResponse.json({ error: 'Server config' }, { status: 500 })
+    const { referrerId, referredEmail } = await req.json()
 
-    const supabase = createClient(supaUrl, supaKey)
-    const { referrerId, referredEmail, referredUserId, action } = await req.json()
-
-    if (action === 'track_signup' && referrerId && referredUserId) {
-      // A referred user just signed up — update their referral to 'joined'
-      await supabase.from('referrals')
-        .update({ referred_user_id: referredUserId, status: 'joined' })
-        .eq('referrer_id', referrerId)
-        .eq('status', 'sent')
-        .is('referred_user_id', null)
-        .limit(1)
-
-      return NextResponse.json({ success: true })
+    if (typeof referrerId !== 'string' || !UUID_RE.test(referrerId)
+      || typeof referredEmail !== 'string' || !EMAIL_RE.test(referredEmail.trim())) {
+      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    if (action === 'track_conversion' && referredUserId) {
-      // Referred user subscribed — mark as converted
-      await supabase.from('referrals')
-        .update({ status: 'converted', converted_at: new Date().toISOString() })
-        .eq('referred_user_id', referredUserId)
-        .eq('status', 'joined')
+    const supabase = getAdminClient()
+    const email = referredEmail.trim().toLowerCase()
 
-      return NextResponse.json({ success: true })
-    }
+    const { data: referrer } = await supabase.from('profiles').select('id').eq('id', referrerId).maybeSingle()
+    if (!referrer) return NextResponse.json({ error: 'Invalid referrer' }, { status: 400 })
 
-    if (referrerId && referredEmail) {
-      // Create a new referral record
-      const { error } = await supabase.from('referrals').insert({
-        referrer_id: referrerId,
-        referred_email: referredEmail.trim().toLowerCase(),
-        status: 'sent',
-      })
-      if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-      return NextResponse.json({ success: true })
-    }
+    const { data: existing } = await supabase.from('referrals').select('id').eq('referred_email', email).limit(1)
+    if (existing && existing.length > 0) return NextResponse.json({ success: true })
 
-    return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+    const { error } = await supabase.from('referrals').insert({
+      referrer_id: referrerId,
+      referred_email: email,
+      status: 'sent',
+    })
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ success: true })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
