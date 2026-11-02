@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { BUCKET, buildStoragePath, resolveOrgId, signPaths, signPath } from '@/lib/storage'
 
 export interface Photo {
   id: string
@@ -14,7 +15,6 @@ export interface Photo {
   createdAt: string
 }
 
-const BUCKET = 'documents'
 
 export function usePhotos(userId: string | undefined, orgId?: string | null) {
   const [photos, setPhotos] = useState<Photo[]>([])
@@ -35,11 +35,13 @@ export function usePhotos(userId: string | undefined, orgId?: string | null) {
       const { data, error } = await query
       if (error) throw error
 
+      // public_url is legacy — the bucket is private, so always sign storage_path
+      const urls = await signPaths((data || []).map((p: any) => p.storage_path))
       const mapped: Photo[] = (data || []).map((p: any) => ({
         id: p.id,
         projectId: p.project_id,
         storagePath: p.storage_path,
-        url: p.public_url,
+        url: urls[p.storage_path] || '',
         name: p.name || '',
         caption: p.caption || '',
         category: p.category || 'General',
@@ -64,9 +66,8 @@ export function usePhotos(userId: string | undefined, orgId?: string | null) {
   ): Promise<Photo | null> => {
     if (!userId) return null
     try {
-      const timestamp = Date.now()
-      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const storagePath = `${userId}/${projectId}/photos/${timestamp}_${safe}`
+      const resolvedOrgId = await resolveOrgId(userId, orgId)
+      const storagePath = buildStoragePath(resolvedOrgId, projectId, 'photos', file.name)
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
@@ -75,17 +76,15 @@ export function usePhotos(userId: string | undefined, orgId?: string | null) {
 
       if (uploadError) throw uploadError
 
-      const { data: { publicUrl } } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
-
       // Persist metadata to DB
       const { data: row, error: dbError } = await supabase
         .from('photos')
         .insert({
           user_id: userId,
-          ...(orgId ? { org_id: orgId } : {}),
+          org_id: resolvedOrgId,
           project_id: projectId,
           storage_path: storagePath,
-          public_url: publicUrl,
+          public_url: '', // legacy NOT NULL column; URLs are signed on load
           name: file.name,
           caption,
           category,
@@ -99,7 +98,7 @@ export function usePhotos(userId: string | undefined, orgId?: string | null) {
         id: row.id,
         projectId: row.project_id,
         storagePath: row.storage_path,
-        url: row.public_url,
+        url: await signPath(row.storage_path),
         name: row.name || '',
         caption: row.caption || '',
         category: row.category || 'General',

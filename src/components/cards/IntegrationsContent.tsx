@@ -4,8 +4,9 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   Plug, Download, Upload, FileSpreadsheet, Calendar, DollarSign, MessageSquare,
   Globe, CheckCircle, AlertCircle, Loader2, FolderOpen, CheckSquare, Receipt,
-  ArrowDownToLine, ArrowUpFromLine, X, ChevronRight, ExternalLink, RefreshCw, Unplug
+  ArrowDownToLine, ArrowUpFromLine, X, ChevronRight, RefreshCw, Unplug
 } from 'lucide-react'
+import PortalLinkActions from '@/components/PortalLinkActions'
 
 interface IntegrationsContentProps {
   projects: any[]
@@ -602,13 +603,7 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, user
                         <p className="text-xs font-medium text-gray-900 dark:text-gray-100">{p.name}</p>
                         <p className="text-[10px] text-gray-400">{p.clientName || 'No client'}</p>
                       </div>
-                      <button onClick={() => {
-                        const portalUrl = `${window.location.origin}/portal/${p.id}`
-                        navigator.clipboard.writeText(portalUrl)
-                      }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 text-[10px] font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-[#1a1a1a] border border-gray-200 dark:border-[#333] rounded-lg hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors">
-                        <ExternalLink className="w-3 h-3" /> Copy Link
-                      </button>
+                      <PortalLinkActions projectId={p.id} />
                     </div>
                   ))
                 )}

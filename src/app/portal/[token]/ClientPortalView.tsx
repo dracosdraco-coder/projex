@@ -6,16 +6,15 @@ interface ClientPortalViewProps {
   project: any
   phases: any[]
   documents: any[]
-  expenses: any[]
   orgName: string
 }
 
-export default function ClientPortalView({ project, phases, documents, expenses, orgName }: ClientPortalViewProps) {
+export default function ClientPortalView({ project, phases, documents, orgName }: ClientPortalViewProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'timeline'>('overview')
 
-  const totalExpenses = expenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0)
   const contractAmount = project.contract_amount || 0
-  const progressPercent = contractAmount > 0 ? Math.min(100, Math.round((totalExpenses / contractAmount) * 100)) : 0
+  const paidToDate = documents.filter((d: any) => d.status === 'paid').reduce((sum: number, d: any) => sum + (d.total || 0), 0)
+  const paidPercent = contractAmount > 0 ? Math.min(100, Math.round((paidToDate / contractAmount) * 100)) : 0
 
   const completedPhases = phases.filter((p: any) => p.status === 'completed').length
   const totalPhases = phases.length
@@ -90,10 +89,10 @@ export default function ClientPortalView({ project, phases, documents, expenses,
                 <p className="text-lg font-semibold text-gray-900">{formatCurrency(contractAmount)}</p>
               </div>
               <div className="bg-white rounded-xl border border-gray-200 p-4">
-                <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Budget Used</p>
-                <p className="text-lg font-semibold text-gray-900">{progressPercent}%</p>
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Paid to Date</p>
+                <p className="text-lg font-semibold text-gray-900">{formatCurrency(paidToDate)}</p>
                 <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-gray-900 rounded-full transition-all" style={{ width: `${progressPercent}%` }} />
+                  <div className="h-full bg-gray-900 rounded-full transition-all" style={{ width: `${paidPercent}%` }} />
                 </div>
               </div>
               <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -199,8 +198,8 @@ export default function ClientPortalView({ project, phases, documents, expenses,
                       <div className="space-y-1">
                         {doc.line_items.slice(0, 5).map((li: any, i: number) => (
                           <div key={i} className="flex justify-between text-[11px]">
-                            <span className="text-gray-600 truncate mr-4">{li.description || li.name || 'Item'}</span>
-                            <span className="text-gray-900 font-medium shrink-0">{formatCurrency(li.price || li.total || (li.quantity * li.unitPrice) || 0)}</span>
+                            <span className="text-gray-600 truncate mr-4">{li.description}</span>
+                            <span className="text-gray-900 font-medium shrink-0">{formatCurrency(li.amount || 0)}</span>
                           </div>
                         ))}
                         {doc.line_items.length > 5 && (

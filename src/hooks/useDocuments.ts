@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { BUCKET, buildStoragePath, resolveOrgId, signPaths, signPath } from '@/lib/storage'
 import { FormDocument, Meeting, Branch } from '@/types'
 import {
   StorageDocument, MeetingFormData,
@@ -35,13 +36,11 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
 
     if (error) return
 
-    const transformed: StorageDocument[] = (docsData || []).map((doc: any) => {
-      const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(doc.storage_path)
-      return {
-        id: doc.id, projectId: doc.project_id, name: doc.name, type: doc.type,
-        fileUrl: publicUrl, fileSize: doc.file_size, mimeType: doc.mime_type, uploadedAt: doc.uploaded_at,
-      }
-    })
+    const urls = await signPaths((docsData || []).map((d: any) => d.storage_path))
+    const transformed: StorageDocument[] = (docsData || []).map((doc: any) => ({
+      id: doc.id, projectId: doc.project_id, name: doc.name, type: doc.type,
+      fileUrl: urls[doc.storage_path] || '', fileSize: doc.file_size, mimeType: doc.mime_type, uploadedAt: doc.uploaded_at,
+    }))
     setStorageDocuments(transformed)
   }, [userId])
 
@@ -143,41 +142,32 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     if (!user) throw new Error('Not authenticated')
 
     // orgIdRef can still be null here if OrgProvider hasn't finished loading
-    // yet. The documents RLS insert policy requires org_id to match the
-    // user's org with no user_id fallback, so a null org_id always gets
-    // silently rejected — fetch it fresh from profiles to close that race.
-    let orgId = orgIdRef.current
-    if (!orgId) {
-      const { data: profile } = await supabase.from('profiles').select('org_id').eq('id', user.id).single()
-      orgId = profile?.org_id || null
-    }
+    // yet; both the documents RLS policy and the storage path need it.
+    const orgId = await resolveOrgId(user.id, orgIdRef.current)
+    const storagePath = buildStoragePath(orgId, projectId, 'documents', file.name)
 
-    const timestamp = Date.now()
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-    const storagePath = `${user.id}/${projectId}/${timestamp}_${sanitizedName}`
-
-    const { error: uploadError } = await supabase.storage.from('documents').upload(storagePath, file)
+    const { error: uploadError } = await supabase.storage.from(BUCKET).upload(storagePath, file)
     if (uploadError) throw uploadError
-
-    const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(storagePath)
 
     const { data: docRecord, error: dbError } = await supabase
       .from('documents')
       .insert([{
-        user_id: user.id, org_id: orgId || undefined, project_id: projectId, name: file.name, type,
+        user_id: user.id, org_id: orgId, project_id: projectId, name: file.name, type,
         storage_path: storagePath, file_size: file.size, mime_type: file.type,
       }])
       .select()
       .single()
 
     if (dbError) {
-      await supabase.storage.from('documents').remove([storagePath])
+      await supabase.storage.from(BUCKET).remove([storagePath])
       throw dbError
     }
 
+    const fileUrl = await signPath(storagePath)
+
     const newDoc: StorageDocument = {
       id: docRecord.id, projectId: docRecord.project_id, name: docRecord.name,
-      type: docRecord.type, fileUrl: publicUrl, fileSize: docRecord.file_size,
+      type: docRecord.type, fileUrl, fileSize: docRecord.file_size,
       mimeType: docRecord.mime_type, uploadedAt: docRecord.uploaded_at,
     }
     setStorageDocuments(prev => [newDoc, ...prev])
@@ -198,7 +188,7 @@ export function useDocuments(userId: string | undefined, orgId?: string | null) 
     const { error: dbError } = await supabase.from('documents').delete().eq('id', documentId)
     if (dbError) throw dbError
 
-    await supabase.storage.from('documents').remove([docData.storage_path])
+    await supabase.storage.from(BUCKET).remove([docData.storage_path])
     setStorageDocuments(prev => prev.filter(d => d.id !== documentId))
   }, [storageDocuments])
 

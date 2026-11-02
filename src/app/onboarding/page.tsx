@@ -103,27 +103,13 @@ export default function OnboardingPage() {
       // 2. If this user was invited to an existing org, join it instead of
       // creating a new one — otherwise invited team members end up siloed
       // in their own org and never see shared projects/calendar/dashboard.
-      const normalizedEmail = user.email!.trim().toLowerCase()
-      const { data: pendingMembership } = await supabase
-        .from('org_members')
-        .select('id, org_id')
-        .eq('email', normalizedEmail)
-        .eq('status', 'pending')
-        .limit(1)
-        .single()
+      // Runs server-side (SECURITY DEFINER): matches the verified auth email,
+      // keeps the role the inviter chose, and sets profiles.org_id.
+      const { data: joinedOrgId, error: joinError } = await supabase
+        .rpc('accept_pending_invites', { display_name: `${firstName} ${lastName}`.trim() })
+      if (joinError) console.error('accept_pending_invites failed:', joinError)
 
-      if (pendingMembership?.org_id) {
-        await supabase.from('org_members')
-          .update({
-            user_id: user.id,
-            name: `${firstName} ${lastName}`.trim(),
-            status: 'active',
-            joined_at: new Date().toISOString(),
-          })
-          .eq('id', pendingMembership.id)
-
-        await supabase.from('profiles').update({ org_id: pendingMembership.org_id }).eq('id', user.id)
-
+      if (joinedOrgId) {
         setStep(5)
         return
       }

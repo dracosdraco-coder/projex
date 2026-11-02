@@ -85,8 +85,8 @@ import { useGlobalSearch, SearchResult } from '@/hooks/useGlobalSearch'
 import { generateDocumentPDF, saveProjectXFormat } from '@/lib/pdf-generator'
 import { convertDocument, quickConvert } from '@/lib/document-converter'
 import { useRealtime, usePresence } from '@/hooks/useRealtime'
-import { useStorage } from '@/hooks/useStorage'
 import { useRoles, RolesProvider, CanDo } from '@/hooks/useRoles'
+import PortalLinkActions from '@/components/PortalLinkActions'
 import { useNotifications } from '@/hooks/useNotifications'
 import NotificationBell from '@/components/ui/NotificationBell'
 import { 
@@ -289,8 +289,7 @@ export default function AccessClient() {
   } = useCanvas()
 
   // --- New systems: Realtime, Storage, Notifications ---
-  const storage = useStorage(user?.id)
-  const { notifications, unreadCount, markRead, markAllRead, dismiss: dismissNotification, notify } = useNotifications(user?.id)
+  const { notifications, unreadCount, markRead, markAllRead, dismiss: dismissNotification, notify } = useNotifications(user?.id, orgId)
   const { leads, loadLeads, createLead, updateLead: updateLeadHook, deleteLead } = useLeads(user?.id, orgId)
   const { photos, loadPhotos, uploadPhoto, deletePhoto } = usePhotos(user?.id, orgId)
 
@@ -1182,36 +1181,17 @@ case 'drawings':
               {projects.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm">No projects yet</div>
               ) : (
-                projects.map((p: any) => {
-                  const portalUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/portal/${p.id}`
-                  return (
-                    <div key={p.id} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{p.name}</h3>
-                          <p className="text-[10px] text-gray-400 mt-0.5 truncate">{p.client || 'No client'}</p>
-                          <p className="text-[10px] text-blue-600 dark:text-blue-400 mt-1 truncate font-mono">{portalUrl}</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            onClick={() => navigator.clipboard?.writeText(portalUrl)}
-                            className="px-2.5 py-1.5 text-[10px] font-medium bg-gray-100 dark:bg-[#222] text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-[#333]"
-                          >
-                            Copy
-                          </button>
-                          <a
-                            href={portalUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-2.5 py-1.5 text-[10px] font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                          >
-                            Open ↗
-                          </a>
-                        </div>
+                projects.map((p: any) => (
+                  <div key={p.id} className="bg-white dark:bg-[#1a1a1a] rounded-xl border border-gray-200 dark:border-[#2a2a2a] p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{p.name}</h3>
+                        <p className="text-[10px] text-gray-400 mt-0.5 truncate">{p.client || 'No client'}</p>
                       </div>
+                      <PortalLinkActions projectId={p.id} />
                     </div>
-                  )
-                })
+                  </div>
+                ))
               )}
             </div>
           </div>
