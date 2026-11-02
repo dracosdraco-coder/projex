@@ -75,7 +75,7 @@ export function useTeam(userId: string | undefined, orgId?: string | null) {
     const inviteRes = await fetch('/api/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, memberName: data.name, memberEmail: data.email, memberRole: data.role }),
+      body: JSON.stringify({ memberName: data.name, memberEmail: data.email, memberRole: data.role }),
     })
     const inviteData = await inviteRes.json()
     if (!inviteRes.ok) {

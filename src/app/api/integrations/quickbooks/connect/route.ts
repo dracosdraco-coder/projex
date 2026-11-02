@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { requireUser, signState } from '@/lib/auth-server'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const clientId = process.env.QB_CLIENT_ID
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://projex.live'
 
@@ -8,9 +9,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${appUrl}/access?error=quickbooks_not_configured`)
   }
 
-  const userId = req.nextUrl.searchParams.get('userId') || ''
-  const orgId = req.nextUrl.searchParams.get('orgId') || ''
-  const state = Buffer.from(JSON.stringify({ userId, orgId })).toString('base64')
+  const { ctx } = await requireUser({ roles: ['owner', 'admin'] })
+  if (!ctx) return NextResponse.redirect(`${appUrl}/access?error=integration_not_allowed`)
+
+  const state = encodeURIComponent(signState({ userId: ctx.user.id, orgId: ctx.orgId! }))
 
   const redirectUri = encodeURIComponent(`${appUrl}/api/integrations/quickbooks/callback`)
   const scope = encodeURIComponent('com.intuit.quickbooks.accounting')

@@ -78,7 +78,7 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, user
 
   useEffect(() => {
     if (!orgId) return
-    fetch(`/api/integrations/status?orgId=${orgId}`)
+    fetch('/api/integrations/status')
       .then(r => r.json())
       .then(data => setIntegStatus(data))
       .catch(() => {})
@@ -86,12 +86,13 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, user
 
   const connectQB = () => {
     if (!userId || !orgId) return
-    window.location.href = `/api/integrations/quickbooks/connect?userId=${userId}&orgId=${orgId}`
+    window.location.href = '/api/integrations/quickbooks/connect'
   }
 
   const disconnectQB = async () => {
     if (!orgId) return
-    await fetch('/api/integrations/quickbooks/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId }) })
+    const res = await fetch('/api/integrations/quickbooks/disconnect', { method: 'POST' })
+    if (!res.ok) { setSyncResult(`Error: ${(await res.json().catch(() => ({}))).error || 'Could not disconnect'}`); return }
     setIntegStatus(s => ({ ...s, quickbooks: false, quickbooksRealmId: null }))
   }
 
@@ -99,7 +100,7 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, user
     if (!orgId) return
     setSyncingQB(true); setSyncResult(null)
     try {
-      const res = await fetch('/api/integrations/quickbooks/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId, syncType }) })
+      const res = await fetch('/api/integrations/quickbooks/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ syncType }) })
       const data = await res.json()
       setSyncResult(data.error ? `Error: ${data.error}` : `Synced ${data.synced} record${data.synced !== 1 ? 's' : ''} to QuickBooks`)
     } catch (e: any) { setSyncResult(`Error: ${e.message}`) }
@@ -108,12 +109,13 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, user
 
   const connectGoogle = () => {
     if (!userId || !orgId) return
-    window.location.href = `/api/integrations/google/connect?userId=${userId}&orgId=${orgId}`
+    window.location.href = '/api/integrations/google/connect'
   }
 
   const disconnectGoogle = async () => {
     if (!orgId) return
-    await fetch('/api/integrations/google/disconnect', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId }) })
+    const res = await fetch('/api/integrations/google/disconnect', { method: 'POST' })
+    if (!res.ok) { setSyncResult(`Error: ${(await res.json().catch(() => ({}))).error || 'Could not disconnect'}`); return }
     setIntegStatus(s => ({ ...s, google: false }))
   }
 
@@ -121,7 +123,7 @@ export default function IntegrationsContent({ projects, tasks, teamMembers, user
     if (!orgId) return
     setSyncingGoogle(true); setSyncResult(null)
     try {
-      const res = await fetch('/api/integrations/google/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orgId, syncType }) })
+      const res = await fetch('/api/integrations/google/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ syncType }) })
       const data = await res.json()
       setSyncResult(data.error ? `Error: ${data.error}` : `Synced ${data.synced} event${data.synced !== 1 ? 's' : ''} to Google Calendar`)
     } catch (e: any) { setSyncResult(`Error: ${e.message}`) }

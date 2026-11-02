@@ -128,7 +128,7 @@ export default function SettingsContent() {
       const res = await fetch('/api/addon-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id, userEmail: user?.email, addonId: id }),
+        body: JSON.stringify({ addonId: id }),
       })
       const data = await res.json()
       if (data.url) {
@@ -198,7 +198,7 @@ export default function SettingsContent() {
   // Load referral stats
   useEffect(() => {
     if (!user?.id) return
-    fetch(`/api/referrals?userId=${user.id}`)
+    fetch('/api/referrals')
       .then(r => r.json())
       .then(data => { if (data.sent !== undefined) setReferralStats(data) })
       .catch(() => {})
@@ -569,8 +569,6 @@ export default function SettingsContent() {
                 try {
                   const res = await fetch('/api/billing-portal', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: user?.id }),
                   })
                   const data = await res.json()
                   if (data.url) window.location.href = data.url

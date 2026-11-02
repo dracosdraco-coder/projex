@@ -1,14 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import { requireUser } from '@/lib/auth-server'
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const { ctx, error } = await requireUser()
+    if (error) return error
 
-    const orgId = req.nextUrl.searchParams.get('orgId')
+    const supabase = ctx.admin
+    const orgId = ctx.orgId
     if (!orgId) return NextResponse.json({ quickbooks: false, google: false })
 
     const { data } = await supabase

@@ -1,17 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import { requireUser } from '@/lib/auth-server'
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   try {
-    const { orgId } = await req.json()
-    if (!orgId) return NextResponse.json({ error: 'Missing orgId' }, { status: 400 })
+    const { ctx, error } = await requireUser({ roles: ['owner', 'admin'] })
+    if (error) return error
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    await supabase.from('integrations').delete().eq('org_id', orgId).eq('provider', 'google')
+    const orgId = ctx.orgId!
+    await ctx.admin.from('integrations').delete().eq('org_id', orgId).eq('provider', 'google')
     return NextResponse.json({ success: true })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })

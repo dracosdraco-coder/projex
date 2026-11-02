@@ -1,28 +1,16 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
+import { requireUser } from '@/lib/auth-server'
 
 const FREE_RESPONSE = { plan: 'free', status: 'none', trialEndsAt: null }
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-    
-    if (!url || !key) {
-      console.error('Missing env vars:', { hasUrl: !!url, hasKey: !!key })
-      return NextResponse.json(FREE_RESPONSE)
-    }
+    const { ctx, error } = await requireUser()
+    if (error) return error
 
-    const supabase = createClient(url, key)
-    const userId = req.nextUrl.searchParams.get('userId')
-    if (!userId) return NextResponse.json(FREE_RESPONSE)
-
-    // Get user's org
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('org_id')
-      .eq('id', userId)
-      .single()
+    const supabase = ctx.admin
+    const userId = ctx.user.id
+    const profile = { org_id: ctx.orgId }
 
     let sub = null
 
