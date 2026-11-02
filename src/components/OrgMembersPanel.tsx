@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useRoles, UserRole, ROLE_LABELS } from '@/hooks/useRoles'
-import { Users, Shield, Clock, UserMinus, ChevronDown, Check, AlertCircle, Crown, Mail } from 'lucide-react'
+import { Users, Shield, Clock, UserMinus, ChevronDown, Check, AlertCircle, Crown, Mail, Link2, RotateCw, X } from 'lucide-react'
 
 interface OrgMember {
   id: string
@@ -15,6 +15,16 @@ interface OrgMember {
   role: UserRole
   status: 'active' | 'pending' | 'deactivated'
   joined_at: string | null
+  created_at: string
+}
+
+interface OrgInvite {
+  id: string
+  email: string
+  name: string | null
+  role: UserRole
+  token: string
+  expires_at: string
   created_at: string
 }
 
@@ -31,9 +41,14 @@ export default function OrgMembersPanel({ orgId, isOnline }: OrgMembersPanelProp
   const [editingRole, setEditingRole] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
+  const [invites, setInvites] = useState<OrgInvite[]>([])
+  const [inviteBusy, setInviteBusy] = useState<string | null>(null)
 
   const canEditRoles = can('team', 'editRoles')
   const canRemove = can('team', 'remove')
+  const canManageInvites = myRole === 'owner' || myRole === 'admin'
+
+  const flashSuccess = (msg: string) => { setActionSuccess(msg); setTimeout(() => setActionSuccess(''), 2500) }
 
   const loadMembers = useCallback(async () => {
     if (!orgId) return
@@ -45,8 +60,62 @@ export default function OrgMembersPanel({ orgId, isOnline }: OrgMembersPanelProp
       .order('created_at', { ascending: true })
 
     if (data) setMembers(data as OrgMember[])
+
+    // Open invites (RLS: owners/admins only — others just get an empty list)
+    const { data: inviteRows } = await supabase
+      .from('org_invites')
+      .select('id, email, name, role, token, expires_at, created_at')
+      .eq('org_id', orgId)
+      .is('accepted_at', null)
+      .is('revoked_at', null)
+      .order('created_at', { ascending: false })
+    setInvites((inviteRows || []) as OrgInvite[])
+
     setLoading(false)
   }, [orgId])
+
+  const copyInviteLink = async (invite: OrgInvite) => {
+    await navigator.clipboard?.writeText(`${window.location.origin}/invite/${invite.token}`)
+    flashSuccess('Invite link copied')
+  }
+
+  const resendInvite = async (invite: OrgInvite) => {
+    setActionError('')
+    setInviteBusy(invite.id)
+    try {
+      const res = await fetch(`/api/invite/${invite.id}`, { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not resend invite')
+      if (data.emailSent) {
+        flashSuccess(`Invite re-sent to ${invite.email}`)
+      } else {
+        await navigator.clipboard?.writeText(data.inviteUrl)
+        flashSuccess('Email isn\'t configured — new invite link copied instead')
+      }
+      await loadMembers()
+    } catch (err: any) {
+      setActionError(err.message)
+    } finally {
+      setInviteBusy(null)
+    }
+  }
+
+  const revokeInvite = async (invite: OrgInvite) => {
+    if (!confirm(`Revoke the invite for ${invite.email}? The link will stop working.`)) return
+    setActionError('')
+    setInviteBusy(invite.id)
+    try {
+      const res = await fetch(`/api/invite/${invite.id}`, { method: 'DELETE' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not revoke invite')
+      setInvites(prev => prev.filter(i => i.id !== invite.id))
+      flashSuccess('Invite revoked')
+    } catch (err: any) {
+      setActionError(err.message)
+    } finally {
+      setInviteBusy(null)
+    }
+  }
 
   useEffect(() => { loadMembers() }, [loadMembers])
 
@@ -97,7 +166,7 @@ export default function OrgMembersPanel({ orgId, isOnline }: OrgMembersPanelProp
   }
 
   const activeCount = members.filter(m => m.status === 'active').length
-  const pendingCount = members.filter(m => m.status === 'pending').length
+  const pendingCount = invites.length
 
   const ROLES: UserRole[] = ['owner', 'admin', 'manager', 'supervisor', 'worker', 'viewer']
 
@@ -234,6 +303,54 @@ export default function OrgMembersPanel({ orgId, isOnline }: OrgMembersPanelProp
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Pending invites */}
+      {!loading && invites.length > 0 && (
+        <div className="pt-2">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Pending invites</p>
+          <div className="space-y-1">
+            {invites.map(invite => {
+              const expired = new Date(invite.expires_at) < new Date()
+              const roleInfo = ROLE_LABELS[invite.role] || ROLE_LABELS.worker
+              return (
+                <div key={invite.id} className="flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-[#1a1a1a]">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center bg-gray-100 dark:bg-[#222] text-gray-400 shrink-0">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{invite.name || invite.email.split('@')[0]}</span>
+                      {expired
+                        ? <span className="text-[9px] font-medium text-red-500 bg-red-50 dark:bg-red-900/20 px-1.5 py-0.5 rounded">Expired</span>
+                        : <span className="text-[9px] font-medium text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 px-1.5 py-0.5 rounded">Expires {formatDate(invite.expires_at)}</span>}
+                    </div>
+                    <p className="text-[11px] text-gray-400 truncate">{invite.email}</p>
+                  </div>
+                  <span className={`px-2.5 py-1 text-[10px] font-semibold rounded-lg ${roleInfo.color}`}>{roleInfo.label}</span>
+                  {canManageInvites && (
+                    <div className="flex gap-1">
+                      {!expired && (
+                        <button onClick={() => copyInviteLink(invite)} title="Copy invite link"
+                          className="p-1.5 text-gray-300 hover:text-blue-500 dark:text-gray-600 dark:hover:text-blue-400 rounded-lg transition-colors">
+                          <Link2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button onClick={() => resendInvite(invite)} disabled={inviteBusy === invite.id} title="Resend (new link, 7 more days)"
+                        className="p-1.5 text-gray-300 hover:text-green-500 dark:text-gray-600 dark:hover:text-green-400 rounded-lg transition-colors disabled:opacity-40">
+                        <RotateCw className={`w-3.5 h-3.5 ${inviteBusy === invite.id ? 'animate-spin' : ''}`} />
+                      </button>
+                      <button onClick={() => revokeInvite(invite)} disabled={inviteBusy === invite.id} title="Revoke invite"
+                        className="p-1.5 text-gray-300 hover:text-red-500 dark:text-gray-600 dark:hover:text-red-400 rounded-lg transition-colors disabled:opacity-40">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
     </div>

@@ -2,11 +2,48 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import { supabase } from '@/lib/supabase'
+
+interface Membership { orgId: string; name: string; role: string }
 
 export default function UserProfileDropdown() {
   const { user, signOut } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const [orgs, setOrgs] = useState<Membership[]>([])
+  const [activeOrgId, setActiveOrgId] = useState<string | null>(null)
+  const [switching, setSwitching] = useState<string | null>(null)
+
+  // Orgs this user belongs to, for the switcher (only shown with 2+)
+  useEffect(() => {
+    if (!user?.id) return
+    Promise.all([
+      supabase.from('org_members').select('org_id, role, organizations(name)')
+        .eq('user_id', user.id).eq('status', 'active'),
+      supabase.from('profiles').select('org_id').eq('id', user.id).single(),
+    ]).then(([{ data: rows }, { data: profile }]) => {
+      setOrgs((rows || []).map((r: any) => ({ orgId: r.org_id, name: r.organizations?.name || 'Organization', role: r.role })))
+      setActiveOrgId(profile?.org_id || null)
+    })
+  }, [user?.id])
+
+  const switchOrg = async (orgId: string) => {
+    if (orgId === activeOrgId) return
+    setSwitching(orgId)
+    const res = await fetch('/api/org/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orgId }),
+    })
+    if (res.ok) {
+      // All data hooks key off the active org — reload to refetch everything cleanly
+      window.location.href = '/access'
+    } else {
+      const data = await res.json().catch(() => ({}))
+      alert(data.error || 'Could not switch organization')
+      setSwitching(null)
+    }
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -82,6 +119,24 @@ export default function UserProfileDropdown() {
               {userEmail}
             </p>
           </div>
+
+          {/* Org switcher */}
+          {orgs.length > 1 && (
+            <div className="py-2 border-b border-gray-200 dark:border-[#2a2a2a]">
+              <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">Organizations</p>
+              {orgs.map(o => (
+                <button key={o.orgId} onClick={() => switchOrg(o.orgId)} disabled={!!switching}
+                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-[#2a2a2a] transition-colors flex items-center gap-3 disabled:opacity-60">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${o.orgId === activeOrgId ? 'bg-green-500' : 'bg-gray-300 dark:bg-[#444]'}`} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block truncate text-gray-900 dark:text-gray-100">{o.name}</span>
+                    <span className="block text-[10px] text-gray-400 capitalize">{o.role}</span>
+                  </span>
+                  {switching === o.orgId && <span className="text-[10px] text-gray-400">Switching…</span>}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Menu Items */}
           <div className="py-2">

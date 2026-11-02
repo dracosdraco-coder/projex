@@ -430,7 +430,7 @@ Redirect URLs:  https://projex.live/**
 
           <H3>Inviting Members</H3>
           <P>
-            Invites are sent via <Code>POST /api/invite</Code>. The route generates a signed invite token, sends an email via Resend/Nodemailer, and adds the user to the org upon acceptance.
+            Owners and admins invite people via <Code>POST /api/invite</Code>, which creates an <Code>org_invites</Code> row and emails a <Code>/invite/[token]</Code> link that is valid for 7 days. The person signs in or signs up from that page and accepts; only then are they added to the org. Pending invites count toward seats and can be resent, revoked or copied from Team → Members. People who belong to several orgs switch between them from the profile menu.
           </P>
 
           {/* ─── DOCUMENTS ─── */}

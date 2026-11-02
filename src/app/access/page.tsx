@@ -25,12 +25,13 @@ export default function Access() {
       .select('org_id')
       .eq('id', user.id)
       .single()
-      .then(({ data }) => {
-        if (!data?.org_id) {
-          router.push('/onboarding')
-        } else {
-          setChecking(false)
-        }
+      .then(async ({ data }) => {
+        if (data?.org_id) { setChecking(false); return }
+        // Invited by email but signed up without the link: join that team instead
+        // of onboarding them into a new company
+        const { data: joined } = await supabase.rpc('accept_pending_invites')
+        if (joined) setChecking(false)
+        else router.push('/onboarding')
       })
   }, [user, loading, router])
 
