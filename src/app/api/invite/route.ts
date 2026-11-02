@@ -1,191 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUser, escapeHtml } from '@/lib/auth-server'
-import nodemailer from 'nodemailer'
+import { requireUser } from '@/lib/auth-server'
+import {
+  ASSIGNABLE_ROLES, getSeatUsage, sendInviteEmail, getInviterContext, inviteUrl,
+} from '@/lib/invites'
 
-// Seat limits per plan — counts the owner + team members
-// Owners are created with the org, never invited
-const ASSIGNABLE_ROLES = ['admin', 'manager', 'supervisor', 'worker', 'viewer']
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const PLAN_SEAT_LIMITS: Record<string, number> = {
-  free: 1, duo: 2, team: 5, business: 10, enterprise: 20,
-}
-
+// Invite someone to the caller's org. Creates an org_invites row and a contact-list
+// entry (team_members), and emails a /invite/{token} link. Nobody is added to the org
+// until they open the link and accept.
 export async function POST(req: NextRequest) {
   try {
     const { ctx, error } = await requireUser({ roles: ['owner', 'admin'] })
     if (error) return error
 
-    const supabase = ctx.admin
-    const userId = ctx.user.id
+    const admin = ctx.admin
     const orgId = ctx.orgId!
-    const { memberName, memberEmail, memberRole } = await req.json()
+    const { memberName, memberEmail, memberRole, memberPhone } = await req.json()
 
-    if (typeof memberEmail !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(memberEmail.trim())) {
+    if (typeof memberEmail !== 'string' || !EMAIL_RE.test(memberEmail.trim())) {
       return NextResponse.json({ error: 'A valid email is required' }, { status: 400 })
     }
-    if (memberRole && !ASSIGNABLE_ROLES.includes(memberRole)) {
+    const role = memberRole || 'worker'
+    if (!ASSIGNABLE_ROLES.includes(role)) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('id', userId)
-      .single()
+    const email = memberEmail.trim().toLowerCase()
+    const name = (typeof memberName === 'string' && memberName.trim()) || email.split('@')[0]
+    const { inviterName, orgName, ownerId } = await getInviterContext(admin, ctx.user.id, orgId)
 
-    const { data: org } = await supabase.from('organizations').select('name').eq('id', orgId).single()
-
-    const inviterName = escapeHtml(profile?.full_name || 'Your team admin')
-    const companyName = escapeHtml(org?.name || 'their team')
-    const roleLabel = escapeHtml(memberRole || 'team member')
-
-    // Get admin's subscription to check seat limits
-    // First try org-level, then user-level
-    let sub: any = null
-    if (orgId) {
-      const { data } = await supabase
-        .from('subscriptions')
-        .select('plan, status')
-        .eq('org_id', orgId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-      if (data) sub = data
-    }
-    if (!sub) {
-      const { data } = await supabase
-        .from('subscriptions')
-        .select('plan, status')
-        .eq('user_id', userId)
-        .single()
-      if (data) sub = data
+    const { data: existingMember } = await admin.from('org_members')
+      .select('id').eq('org_id', orgId).eq('email', email).eq('status', 'active').maybeSingle()
+    if (existingMember) {
+      return NextResponse.json({ error: `${email} is already a member of ${orgName}.`, code: 'ALREADY_MEMBER' }, { status: 409 })
     }
 
-    const plan = sub?.plan || 'free'
-    const status = sub?.status || 'none'
-    const maxSeats = PLAN_SEAT_LIMITS[plan] || 1
+    const { data: openInvite } = await admin.from('org_invites')
+      .select('id').eq('org_id', orgId).eq('email', email)
+      .is('accepted_at', null).is('revoked_at', null).maybeSingle()
+    if (openInvite) {
+      return NextResponse.json({
+        error: `${email} already has a pending invite. Resend it from Team → Members.`,
+        code: 'ALREADY_INVITED',
+      }, { status: 409 })
+    }
 
-    // Admin must have an active subscription (or trial) to invite
-    // Exception: free plan gets 1 seat (just the owner, no invites)
-    if (plan === 'free' || (status !== 'active' && status !== 'trialing')) {
+    const seats = await getSeatUsage(admin, orgId, ownerId)
+    if (!seats.subscribed) {
       return NextResponse.json({
         error: 'You need an active subscription to invite team members. Start a free trial to get started.',
         code: 'NO_SUBSCRIPTION',
       }, { status: 403 })
     }
-
-    // Count active + pending org members (includes the owner)
-    const { count } = await supabase
-      .from('org_members')
-      .select('id', { count: 'exact', head: true })
-      .eq('org_id', orgId)
-      .in('status', ['active', 'pending'])
-
-    const totalSeats = count || 1
-
-    if (totalSeats >= maxSeats) {
+    if (seats.used >= seats.max) {
+      const planLabel = seats.plan.charAt(0).toUpperCase() + seats.plan.slice(1)
       return NextResponse.json({
-        error: `You've used all ${maxSeats} seats on your ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan (${totalSeats} members). Upgrade your plan to add more.`,
-        code: 'SEAT_LIMIT',
-        current: totalSeats,
-        max: maxSeats,
+        error: `You've used all ${seats.max} seats on your ${planLabel} plan (members plus pending invites). Revoke an invite or upgrade to add more.`,
+        code: 'SEAT_LIMIT', current: seats.used, max: seats.max,
       }, { status: 403 })
     }
 
-    // Create pending org_member (will activate when user signs up)
-    const normalizedEmail = memberEmail.trim().toLowerCase()
-    const { error: memberErr } = await supabase
-      .from('org_members')
-      .upsert({
-        org_id: orgId,
-        email: normalizedEmail,
-        name: (typeof memberName === 'string' && memberName.trim()) || normalizedEmail.split('@')[0],
-        role: memberRole || 'worker',
-        status: 'pending',
-        invited_by: userId,
-      }, { onConflict: 'org_id,email' })
-
-    if (memberErr) {
-      console.error('Failed to create org member:', memberErr)
-      return NextResponse.json({ error: 'Could not add this member. Please try again.' }, { status: 500 })
+    const { data: invite, error: inviteErr } = await admin.from('org_invites')
+      .insert({ org_id: orgId, email, name, role, invited_by: ctx.user.id })
+      .select('id, token')
+      .single()
+    if (inviteErr || !invite) {
+      console.error('Failed to create invite:', inviteErr)
+      return NextResponse.json({ error: 'Could not create the invite. Please try again.' }, { status: 500 })
     }
 
-    // If the invited user already has an account, activate immediately
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', normalizedEmail)
+    // Contact-list entry, linked to the invite so acceptance can attach the real member
+    const { data: teamMember } = await admin.from('team_members')
+      .insert({
+        user_id: ctx.user.id, org_id: orgId, name, email, role,
+        phone: typeof memberPhone === 'string' ? memberPhone : null,
+        invite_id: invite.id,
+      })
+      .select()
       .single()
 
-    if (existingUser) {
-      // Activate their org membership
-      await supabase.from('org_members')
-        .update({ user_id: existingUser.id, status: 'active', joined_at: new Date().toISOString() })
-        .eq('org_id', orgId)
-        .eq('email', normalizedEmail)
+    const url = inviteUrl(invite.token)
+    const emailSent = await sendInviteEmail({ to: email, inviterName, orgName, role, url })
 
-      // Switch their profile to this org
-      await supabase.from('profiles')
-        .update({ org_id: orgId })
-        .eq('id', existingUser.id)
-    }
-
-    // Send invite email if SMTP is configured
-    const smtpHost = process.env.SMTP_HOST
-    const smtpUser = process.env.SMTP_USER
-    const smtpPass = process.env.SMTP_PASS
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://projex.live'
-    let emailSent = false
-
-    if (smtpHost && smtpUser && smtpPass) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: smtpHost,
-          port: parseInt(process.env.SMTP_PORT || '465'),
-          secure: parseInt(process.env.SMTP_PORT || '465') === 465,
-          auth: { user: smtpUser, pass: smtpPass },
-        })
-
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || smtpUser,
-          to: normalizedEmail,
-          subject: `${profile?.full_name || 'Your team admin'} invited you to join ${org?.name || 'their team'} on Projex`,
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 520px; margin: 0 auto; padding: 40px 20px;">
-              <div style="text-align: center; margin-bottom: 32px;">
-                <h1 style="font-size: 20px; font-weight: 700; color: #111; letter-spacing: -0.5px; margin: 0;">PROJEX</h1>
-              </div>
-              <div style="background: #fafafa; border-radius: 12px; padding: 32px; border: 1px solid #e5e5e5;">
-                <h2 style="font-size: 18px; font-weight: 600; color: #111; margin: 0 0 8px 0;">You've been invited</h2>
-                <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
-                  <strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Projex as a <strong>${roleLabel}</strong>.
-                </p>
-                <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 24px 0;">
-                  You don't need your own subscription — just sign up and you'll be added to the team automatically.
-                </p>
-                <a href="${appUrl}/login" style="display: inline-block; background: #111; color: #fff; padding: 12px 28px; border-radius: 100px; text-decoration: none; font-size: 14px; font-weight: 500;">
-                  Accept Invite
-                </a>
-              </div>
-              <p style="text-align: center; color: #999; font-size: 12px; margin-top: 24px;">
-                Projex — Construction management, reimagined.
-              </p>
-            </div>
-          `,
-          text: `${profile?.full_name || 'Your team admin'} invited you to join ${org?.name || 'their team'} on Projex as a ${memberRole || 'team member'}. You don't need your own subscription. Sign up at ${appUrl}/login`,
-        })
-        emailSent = true
-      } catch (emailErr: any) {
-        // Don't fail the invite if email fails — team member still gets added
-        console.error('Invite email failed:', emailErr.message)
-      }
-    }
-
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       emailSent,
-      seatsUsed: totalSeats + 1,
-      seatsMax: maxSeats,
+      // Returned so admins can copy the link when email isn't configured or fails
+      inviteUrl: url,
+      teamMember,
+      seatsUsed: seats.used + 1,
+      seatsMax: seats.max,
     })
   } catch (err: any) {
     console.error('Invite error:', err)

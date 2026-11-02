@@ -39,10 +39,16 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const refCode = searchParams.get('ref')
   const planParam = searchParams.get('plan')
+  // Coming from /invite/[token]: return there after auth instead of /access
+  const rawInvite = searchParams.get('invite')
+  const inviteToken = rawInvite && /^[a-f0-9]{48}$/.test(rawInvite) ? rawInvite : null
+  const afterAuth = inviteToken ? `/invite/${inviteToken}` : '/access'
 
   useEffect(() => {
-    if (refCode || planParam) setMode('signup')
-  }, [refCode, planParam])
+    if (refCode || planParam || searchParams.get('mode') === 'signup') setMode('signup')
+    const prefill = searchParams.get('email')
+    if (prefill) setEmail(prefill)
+  }, [refCode, planParam, searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -51,7 +57,7 @@ function LoginForm() {
     setLoading(true)
     try {
       if (mode === 'signup') {
-        await signUp(email, password)
+        await signUp(email, password, inviteToken || undefined)
         if (refCode) {
           fetch('/api/referrals', {
             method: 'POST',
@@ -64,7 +70,7 @@ function LoginForm() {
         setPassword('')
       } else {
         await signIn(email, password)
-        window.location.href = '/access'
+        window.location.href = afterAuth
       }
     } catch (err: any) {
       setError(err.message || 'Something went wrong')
@@ -77,8 +83,9 @@ function LoginForm() {
     setOauthLoading(provider)
     setError('')
     try {
-      if (provider === 'google') await signInWithGoogle()
-      else await signInWithGitHub()
+      const next = inviteToken ? afterAuth : undefined
+      if (provider === 'google') await signInWithGoogle(next)
+      else await signInWithGitHub(next)
     } catch (err: any) {
       setError(err.message || `${provider} sign-in failed`)
       setOauthLoading(null)
@@ -116,9 +123,11 @@ function LoginForm() {
               {mode === 'signup' ? 'Create your account' : 'Welcome back'}
             </h1>
             <p className="text-[14px] text-zinc-400">
-              {mode === 'signup'
-                ? '14-day free trial · No credit card required'
-                : 'Sign in to your Projex workspace'}
+              {inviteToken
+                ? `${mode === 'signup' ? 'Create an account' : 'Sign in'} to accept your team invite`
+                : mode === 'signup'
+                  ? '14-day free trial · No credit card required'
+                  : 'Sign in to your Projex workspace'}
             </p>
           </div>
 

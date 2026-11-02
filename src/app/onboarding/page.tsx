@@ -97,7 +97,7 @@ export default function OnboardingPage() {
       // 1. Update profile name
       await supabase.from('profiles').update({
         full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
-        company: company.trim(),
+        company_name: company.trim(),
       }).eq('id', user.id)
 
       // 2. If this user was invited to an existing org, join it instead of

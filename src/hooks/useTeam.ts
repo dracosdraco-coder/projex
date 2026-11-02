@@ -71,26 +71,25 @@ export function useTeam(userId: string | undefined, orgId?: string | null) {
   const createTeamMember = useCallback(async (data: { name: string; email: string; phone?: string; role: string }) => {
     if (!userId) throw new Error('Not authenticated')
 
-    // Check plan limits and send invite via API
+    // The server checks seats, creates the invite and the contact-list row, and emails the link
     const inviteRes = await fetch('/api/invite', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ memberName: data.name, memberEmail: data.email, memberRole: data.role }),
+      body: JSON.stringify({ memberName: data.name, memberEmail: data.email, memberRole: data.role, memberPhone: data.phone }),
     })
     const inviteData = await inviteRes.json()
     if (!inviteRes.ok) {
       throw new Error(inviteData.error || 'Failed to invite team member')
     }
 
-    const { data: newMember, error } = await supabase
-      .from('team_members')
-      .insert([{ user_id: userId, org_id: orgIdRef.current || undefined, name: data.name, email: data.email, phone: data.phone, role: data.role }])
-      .select()
-      .single()
+    if (!inviteData.emailSent && inviteData.inviteUrl) {
+      await navigator.clipboard?.writeText(inviteData.inviteUrl).catch(() => {})
+      alert(`Invite created, but the email couldn't be sent. The invite link was copied to your clipboard. Send it to ${data.email} yourself.`)
+    }
 
-    if (error) throw error
-    setTeamMembers(prev => [newMember as TeamMember, ...prev])
-    return newMember as TeamMember
+    const newMember = inviteData.teamMember as TeamMember | null
+    if (newMember) setTeamMembers(prev => [newMember, ...prev])
+    return newMember
   }, [userId])
 
   const deleteTeamMember = useCallback(async (id: string) => {

@@ -9,15 +9,18 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string) => Promise<void>
+  signUp: (email: string, password: string, inviteToken?: string) => Promise<void>
   signOut: () => Promise<void>
   resetPassword: (email: string) => Promise<void>
   updatePassword: (password: string) => Promise<void>
-  signInWithGoogle: () => Promise<void>
-  signInWithGitHub: () => Promise<void>
+  signInWithGoogle: (next?: string) => Promise<void>
+  signInWithGitHub: (next?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+const callbackUrl = (next?: string) =>
+  `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -44,8 +47,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (data.user) setUser(data.user)
   }
 
-  const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password })
+  // inviteToken: tells the signup trigger not to create a separate org, and brings the
+  // user back to the invite after they confirm their email
+  const signUp = async (email: string, password: string, inviteToken?: string) => {
+    const { error } = await supabase.auth.signUp({
+      email, password,
+      options: inviteToken ? {
+        data: { invite_token: inviteToken },
+        emailRedirectTo: callbackUrl(`/invite/${inviteToken}`),
+      } : undefined,
+    })
     if (error) throw error
   }
 
@@ -67,18 +78,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error
   }
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = async (next?: string) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl(next) },
     })
     if (error) throw error
   }
 
-  const signInWithGitHub = async () => {
+  const signInWithGitHub = async (next?: string) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl(next) },
     })
     if (error) throw error
   }

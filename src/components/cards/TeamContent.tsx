@@ -67,9 +67,13 @@ export default function TeamContent({
 
   const handleSubmitMember = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (editing) { await onUpdateMember?.(editing.id, form); setEditing(null) }
-    else await onCreateMember(form)
-    setForm({ name: '', email: '', phone: '', role: 'worker' }); setShowAdd(false)
+    try {
+      if (editing) { await onUpdateMember?.(editing.id, form); setEditing(null) }
+      else await onCreateMember(form)
+      setForm({ name: '', email: '', phone: '', role: 'worker' }); setShowAdd(false)
+    } catch (err: any) {
+      alert(err.message || 'Could not save team member')
+    }
   }
 
   const handleSubmitContact = async (e: React.FormEvent) => {

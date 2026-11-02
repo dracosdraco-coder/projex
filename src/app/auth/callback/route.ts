@@ -4,12 +4,15 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  // Same-origin relative paths only (e.g. /invite/{token}) — never an open redirect
+  const nextParam = searchParams.get('next')
+  const next = nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : null
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`)
   }
 
-  const response = NextResponse.redirect(`${origin}/access`)
+  const response = NextResponse.redirect(`${origin}${next || '/access'}`)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,7 +42,8 @@ export async function GET(request: NextRequest) {
     .eq('id', session.user.id)
     .single()
 
-  if (!profile?.org_id) {
+  // Invite flows finish on the invite page even without an org yet
+  if (!profile?.org_id && !next) {
     return NextResponse.redirect(`${origin}/onboarding`)
   }
 
