@@ -384,15 +384,15 @@ Redirect URLs:  https://projex.live/**
           {/* ─── CLIENT PORTAL ─── */}
           <H2 id="client-portal">Client Portal</H2>
           <P>
-            Each project has a unique public portal at <Code>/portal/[projectId]</Code>. This gives clients a read-only view of project status, documents, photos, and key milestones without needing a Projex account.
+            Each project has a private portal link at <Code>/portal/[token]</Code>, where the token is a random secret (not the project ID). This gives clients a read-only view of project status, documents, photos, and key milestones without needing a Projex account.
           </P>
 
           <H3>How It Works</H3>
           <Step n={1} title="Generate portal link">
-            From any project, the team member copies the portal URL: <Code>https://projex.live/portal/[projectId]</Code>
+            From the Client Portals card, a team member copies the link. Owners, admins and managers can reset it to revoke the old one: <Code>https://projex.live/portal/[token]</Code>
           </Step>
           <Step n={2} title="Client views the portal">
-            The <Code>ClientPortalView.tsx</Code> component renders project info using a public Supabase query (RLS allows public read on portal-enabled projects).
+            The portal page looks up the project by token on the server and passes only client-facing fields to <Code>ClientPortalView.tsx</Code>: no expenses, costs or margins, and only documents that have been sent, viewed, approved or paid.
           </Step>
           <Step n={3} title="No login required">
             Clients do not need an account. The portal is intentionally lightweight and mobile-friendly.

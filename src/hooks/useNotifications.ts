@@ -18,7 +18,7 @@ export interface Notification {
   createdAt: string
 }
 
-export function useNotifications(userId: string | undefined) {
+export function useNotifications(userId: string | undefined, orgId?: string | null) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -124,6 +124,8 @@ export function useNotifications(userId: string | undefined) {
 
     await supabase.from('notifications').insert({
       user_id: targetId,
+      // RLS only allows notifying someone else when they share this org
+      org_id: orgId || null,
       type: data.type,
       title: data.title,
       body: data.body,
@@ -132,7 +134,7 @@ export function useNotifications(userId: string | undefined) {
       task_id: data.taskId,
       read: false,
     })
-  }, [userId])
+  }, [userId, orgId])
 
   // Request browser notification permission
   const requestPermission = useCallback(async () => {

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { BUCKET, buildStoragePath, resolveOrgId, signPaths } from '@/lib/storage'
 import { TeamMember } from '@/types'
 import { Message, MessageAttachment } from '@/types/data'
 
@@ -37,16 +38,15 @@ export function useTeam(userId: string | undefined, orgId?: string | null) {
       .eq(orgIdRef.current ? 'org_id' : 'user_id', orgIdRef.current || userId!)
       .order('created_at', { ascending: false })
 
+    const urls = await signPaths((messagesData || []).flatMap((m: any) =>
+      (m.message_attachments || []).map((att: any) => att.storage_path)))
+
     const transformed: Message[] = (messagesData || []).map((m: any) => {
       const attachments = (m.message_attachments || []).map((att: any) => {
-        const { data: { publicUrl } } = supabase.storage
-          .from('documents')
-          .getPublicUrl(att.storage_path)
-
         return {
           id: att.id,
           fileName: att.file_name,
-          fileUrl: publicUrl,
+          fileUrl: urls[att.storage_path] || '',
           fileType: att.file_type,
           fileSize: att.file_size,
           uploadedAt: att.uploaded_at,
@@ -179,12 +179,11 @@ export function useTeam(userId: string | undefined, orgId?: string | null) {
   const uploadMessageAttachment = useCallback(async (messageId: string, file: File, refetch: () => Promise<void>) => {
     if (!userId) throw new Error('Not authenticated')
 
-    const timestamp = Date.now()
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-    const storagePath = `messages/${userId}/${messageId}/${timestamp}_${sanitizedName}`
+    const orgId = await resolveOrgId(userId, orgIdRef.current)
+    const storagePath = buildStoragePath(orgId, null, `messages/${messageId}`, file.name)
 
     const { error: uploadError } = await supabase.storage
-      .from('documents')
+      .from(BUCKET)
       .upload(storagePath, file)
 
     if (uploadError) throw uploadError
