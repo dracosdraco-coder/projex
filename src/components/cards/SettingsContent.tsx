@@ -589,17 +589,20 @@ export default function SettingsContent() {
                   {([
                     { key: 'email' as const, label: 'Email notifications', desc: 'Project updates, task assignments, and reminders' },
                     { key: 'push' as const, label: 'Push notifications', desc: 'Real-time alerts in your browser' },
-                    { key: 'sms' as const, label: 'SMS notifications', desc: 'Critical alerts via text message' },
+                    { key: 'sms' as const, label: 'SMS notifications', desc: 'Critical alerts via text message', soon: true },
                     { key: 'marketing' as const, label: 'Product updates', desc: 'New features, tips, and company news' },
                   ]).map((n) => (
                     <div key={n.key} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 dark:border-[#222]">
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{n.label}</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {n.label}
+                          {'soon' in n && n.soon && <span className="ml-2 px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-[#252525] text-[9px] font-semibold uppercase tracking-wide text-gray-500">Coming soon</span>}
+                        </p>
                         <p className="text-[11px] text-gray-500 dark:text-gray-400">{n.desc}</p>
                       </div>
-                      <button onClick={() => updateNotifSetting(n.key, !notifSettings[n.key])}
-                        className={`shrink-0 w-11 h-6 rounded-full transition-colors relative ${notifSettings[n.key] ? 'bg-green-500' : 'bg-gray-200 dark:bg-[#333]'}`}>
-                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${notifSettings[n.key] ? 'translate-x-6' : 'translate-x-1'}`} />
+                      <button onClick={() => updateNotifSetting(n.key, !notifSettings[n.key])} disabled={'soon' in n && n.soon}
+                        className={`shrink-0 w-11 h-6 rounded-full transition-colors relative disabled:opacity-40 disabled:cursor-not-allowed ${notifSettings[n.key] && !('soon' in n && n.soon) ? 'bg-green-500' : 'bg-gray-200 dark:bg-[#333]'}`}>
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${notifSettings[n.key] && !('soon' in n && n.soon) ? 'translate-x-6' : 'translate-x-1'}`} />
                       </button>
                     </div>
                   ))}

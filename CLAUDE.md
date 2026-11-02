@@ -12,7 +12,7 @@ Projex is a construction/service-business project management SaaS. It has two su
 - **Auth + DB**: Supabase (PostgreSQL, Row Level Security, SSR client)
 - **Billing**: Stripe (subscriptions + add-ons, webhook at `/api/webhooks/stripe`)
 - **Email**: Nodemailer (SMTP)
-- **VoIP / SMS**: Twilio
+- **VoIP / SMS**: none yet — calls & SMS are "coming soon" in the UI (Twilio was removed Nov 2026)
 - **Integrations**: Google Calendar OAuth, QuickBooks OAuth
 - **Styling**: Tailwind CSS v3
 - **Charts**: Recharts
@@ -35,7 +35,6 @@ src/
       billing-portal/     # Stripe customer portal
       webhooks/stripe/    # Stripe webhook handler
       send-email/         # Nodemailer SMTP
-      voip/               # Twilio SMS + calls
       invite/             # Team member invite emails
       referrals/          # Referral tracking
       integrations/

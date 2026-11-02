@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   alternates: { canonical: 'https://projex.live/privacy' },
 }
 
-const LAST_UPDATED = 'April 7, 2026'
+const LAST_UPDATED = 'November 1, 2026'
 const COMPANY = 'Projex'
 const SITE = 'projex.live'
 const CONTACT_EMAIL = 'privacy@projex.live'
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
                     'Profile data: job title, profile photo, team member details',
                     'Payment information: billing address and payment method (processed securely by Stripe — we do not store card numbers)',
                     'Project data: estimates, invoices, documents, photos, notes, and other content you create or upload',
-                    'Communications: messages sent through the platform, SMS content, and call logs',
+                    'Communications: emails and in-app messages sent through the platform',
                   ].map(item => (
                     <li key={item} className="flex items-start gap-2.5">
                       <span className="text-zinc-600 mt-1">—</span>
@@ -91,7 +91,7 @@ export default function PrivacyPage() {
               <div>
                 <h3 className="text-zinc-200 font-semibold mb-2">1.3 Information from Third Parties</h3>
                 <p>
-                  We may receive information from third-party services you connect to {COMPANY}, including Stripe (payment processing), Twilio (SMS and voice), Supabase (database infrastructure), and others as we expand our integration offerings.
+                  We may receive information from third-party services you connect to {COMPANY}, including Stripe (payment processing), Supabase (database infrastructure), and others as we expand our integration offerings.
                 </p>
               </div>
             </div>
@@ -106,7 +106,7 @@ export default function PrivacyPage() {
                 'Provide, operate, and improve the Service',
                 'Process transactions and manage your subscription',
                 'Send transactional communications (account verification, invoices, project updates)',
-                'Deliver SMS and voice communications via Twilio on your behalf',
+                'Deliver email and in-app messages on your behalf',
                 'Provide customer support and respond to inquiries',
                 'Detect and prevent fraud, abuse, and security incidents',
                 'Analyze usage patterns to improve features and user experience',
@@ -123,41 +123,22 @@ export default function PrivacyPage() {
             </p>
           </section>
 
-          {/* 3 — Twilio Critical */}
+          {/* 3 */}
           <section>
-            <h2 className="text-xl font-semibold text-white mb-4">3. SMS & Voice Communications</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">3. Email & In-App Messaging</h2>
 
             <div className="space-y-4">
               <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">3.1 How We Use Phone Numbers</h3>
+                <h3 className="text-white font-semibold mb-2">3.1 Email</h3>
                 <p>
-                  Phone numbers you provide are used to enable SMS and voice features within the platform. This includes sending project updates, client notifications, team alerts, and other business communications on your behalf. Phone numbers are not sold, rented, or shared with marketing third parties.
+                  Email addresses you provide are used to send project updates, client notifications, invoices, and other business communications on your behalf. Email addresses are not sold, rented, or shared with marketing third parties.
                 </p>
               </div>
 
               <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">3.2 Twilio Data Processing</h3>
+                <h3 className="text-white font-semibold mb-2">3.2 In-App Messages</h3>
                 <p>
-                  SMS and voice services are powered by Twilio Inc. When you use these features, message content, phone numbers, and call metadata are processed by Twilio in accordance with their{' '}
-                  <a href="https://www.twilio.com/en-us/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
-                    Privacy Policy
-                  </a>.
-                  {' '}{COMPANY} retains logs of SMS and call activity associated with your account for operational and compliance purposes.
-                </p>
-              </div>
-
-              <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">3.3 Opt-Out</h3>
-                <p>
-                  Recipients of SMS messages can opt out at any time by replying <strong className="text-white">STOP</strong> to any message. We will honor all opt-out requests promptly. For assistance, reply <strong className="text-white">HELP</strong> or contact{' '}
-                  <a href={`mailto:${CONTACT_EMAIL}`} className="text-blue-400 hover:underline">{CONTACT_EMAIL}</a>.
-                </p>
-              </div>
-
-              <div className="bg-[#18181b] border border-[#27272a] rounded-xl p-5">
-                <h3 className="text-white font-semibold mb-2">3.4 Message Frequency & Rates</h3>
-                <p>
-                  Message frequency varies based on your usage and the communications you configure. Standard message and data rates from your mobile carrier may apply. {COMPANY} does not charge separately for SMS delivery beyond your subscription plan.
+                  Messages and attachments you send inside the platform are stored with your organization&apos;s data and are visible to the members of your organization who have access to them.
                 </p>
               </div>
             </div>
@@ -172,7 +153,7 @@ export default function PrivacyPage() {
               {[
                 {
                   title: 'Service Providers',
-                  desc: 'Third-party vendors who assist in operating our platform, including Supabase (database), Stripe (payments), Twilio (communications), Resend (email), and cloud infrastructure providers. These vendors are contractually bound to protect your data.',
+                  desc: 'Third-party vendors who assist in operating our platform, including Supabase (database), Stripe (payments), Resend (email), and cloud infrastructure providers. These vendors are contractually bound to protect your data.',
                 },
                 {
                   title: 'Your Team Members',
@@ -204,9 +185,6 @@ export default function PrivacyPage() {
             <h2 className="text-xl font-semibold text-white mb-4">5. Data Retention</h2>
             <p>
               We retain your data for as long as your account is active or as needed to provide the Service. When you delete your account, we will delete or anonymize your personal data within 90 days, except where we are required to retain it by law or for legitimate business purposes (such as resolving disputes or preventing fraud).
-            </p>
-            <p className="mt-3">
-              SMS logs and call records are retained for up to 12 months for operational and compliance purposes, after which they are purged from our systems.
             </p>
           </section>
 

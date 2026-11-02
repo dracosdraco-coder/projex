@@ -25,7 +25,7 @@ const INTEGRATIONS = [
   { id: 'csv', name: 'CSV Import / Export', desc: 'Bulk import projects, tasks, expenses from spreadsheets. Export your data anytime.', icon: FileSpreadsheet, status: 'available' as const, color: 'text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/20' },
   { id: 'quickbooks', name: 'QuickBooks', desc: 'Sync invoices, expenses, and payments with QuickBooks Online.', icon: DollarSign, status: 'available' as const, color: 'text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/20' },
   { id: 'gcal', name: 'Google Calendar', desc: 'Sync project deadlines and meetings to Google Calendar.', icon: Calendar, status: 'available' as const, color: 'text-red-600 bg-red-50 dark:text-red-400 dark:bg-red-900/20' },
-  { id: 'twilio', name: 'SMS Notifications', desc: 'Send task reminders and project updates via text message.', icon: MessageSquare, status: 'coming' as const, color: 'text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/20' },
+  { id: 'sms', name: 'Calls & SMS', desc: 'Call and text clients, and send task reminders by text message.', icon: MessageSquare, status: 'coming' as const, color: 'text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-900/20' },
   { id: 'portal', name: 'Client Portal', desc: 'Shareable links for clients to view projects, approve docs, and make payments.', icon: Globe, status: 'available' as const, color: 'text-amber-600 bg-amber-50 dark:text-amber-400 dark:bg-amber-900/20' },
 ]
 

@@ -221,7 +221,7 @@ function AppMockup({ zoomProgress, featureProgress, scale, canInteract }: {
         <div style={{ opacity: win2, transition: 'opacity 0.5s', width: 295 }}>
           <div className="mb-1">
             <Chip label="Messages" href="/docs#comms" plan="Team +"
-              desc="Team and client inbox with full conversation history, SMS via Twilio, and activity logs."
+              desc="Team and client inbox with full conversation history, email, and activity logs."
               windowOpacity={1} cardOpacity={mess} onToggle={() => toggleChip('mess')} />
           </div>
           <div className="bg-white rounded-2xl shadow-lg border border-zinc-200/80 overflow-hidden" style={{ cursor: canInteract ? 'grab' : 'default' }}>
@@ -667,7 +667,7 @@ export default function Home() {
                   items: [
                     { name: 'Team', desc: 'Members, contacts, roles' },
                     { name: 'Messages', desc: 'Team and client inbox' },
-                    { name: 'CommsHub', desc: 'Calls, SMS, activity logs' },
+                    { name: 'CommsHub', desc: 'Email and templates · Calls & SMS soon' },
                     { name: 'Meetings', desc: 'Schedule and notes' },
                     { name: 'Lead Gen', desc: 'Lead tracking and pipeline' },
                   ],
@@ -688,7 +688,7 @@ export default function Home() {
                     { name: 'Branches', desc: 'Multi-location management' },
                     { name: 'Maps', desc: 'Geographic job view' },
                     { name: 'Client Portal', desc: 'Client-facing project view' },
-                    { name: 'Integrations', desc: 'Google, QuickBooks, Twilio' },
+                    { name: 'Integrations', desc: 'Google, QuickBooks, CSV' },
                     { name: 'Settings', desc: 'Company and account config' },
                   ],
                 },

@@ -1,33 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
-import {
-  Phone, MessageCircle, Mail, FileText, Search, Plus, Send, X,
-  PhoneCall, PhoneIncoming, PhoneOutgoing, PhoneMissed, Clock,
-  Users, ChevronLeft, Mic, MicOff, Video, MoreHorizontal,
-  Copy, Check, Star, Archive, Trash2, Loader2, Volume2
-} from 'lucide-react'
-import type { CommsLog } from '@/hooks/useCommsLogs'
+import { useState } from 'react'
+import { Phone, MessageCircle, Mail, FileText, Plus, Send, X, Check, Loader2 } from 'lucide-react'
 
 // Types
-interface CallLog {
-  id: string; contactName: string; contactPhone: string
-  type: 'incoming' | 'outgoing' | 'missed'; duration: number
-  timestamp: string; notes?: string; projectId?: string
-}
-
-interface TextMessage {
-  id: string; contactName: string; contactPhone: string
-  content: string; direction: 'sent' | 'received'
-  timestamp: string; status: 'sent' | 'delivered' | 'read'
-}
-
-interface TextConversation {
-  contactName: string; contactPhone: string
-  messages: TextMessage[]; lastMessage: string; lastTimestamp: string
-  unread: number
-}
-
 interface EmailTemplate {
   id: string; name: string; subject: string; body: string
   category: 'invoice' | 'reminder' | 'update' | 'welcome' | 'follow_up' | 'custom'
@@ -36,11 +12,9 @@ interface EmailTemplate {
 interface CommsHubProps {
   contacts?: any[]; teamMembers?: any[]; projects?: any[]
   onSendEmail?: (data: { to: string; cc?: string; subject: string; html: string; text: string }) => Promise<void>
-  commsLogs?: CommsLog[]
-  onAddCommsLog?: (entry: Omit<CommsLog, 'id' | 'createdAt'>) => Promise<CommsLog | null>
 }
 
-type Tab = 'calls' | 'messages' | 'email' | 'templates'
+type Tab = 'email' | 'templates' | 'calls_sms'
 
 const DEFAULT_TEMPLATES: EmailTemplate[] = [
   { id: 't1', name: 'Invoice Reminder', subject: 'Reminder: Invoice #{number} Due', body: 'Hi {name},\n\nThis is a friendly reminder that Invoice #{number} for {amount} is due on {date}.\n\nPlease let us know if you have any questions.\n\nBest regards,\n{company}', category: 'reminder' },
@@ -51,23 +25,8 @@ const DEFAULT_TEMPLATES: EmailTemplate[] = [
   { id: 't6', name: 'Schedule Inspection', subject: 'Inspection Scheduled: {project}', body: 'Hi {name},\n\nAn inspection has been scheduled for {project}:\n\n• Date: {date}\n• Time: {time}\n• Location: {address}\n\nPlease ensure access is available.\n\nBest,\n{company}', category: 'custom' },
 ]
 
-export default function CommsHubContent({ contacts = [], teamMembers = [], projects = [], onSendEmail, commsLogs, onAddCommsLog }: CommsHubProps) {
-  const [tab, setTab] = useState<Tab>('messages')
-  const [search, setSearch] = useState('')
-
-  // Call state
-  const [callLogs, setCallLogs] = useState<CallLog[]>([])
-  const [showNewCall, setShowNewCall] = useState(false)
-  const [callNotes, setCallNotes] = useState('')
-
-  // Message state (iMessage style)
-  const [conversations, setConversations] = useState<TextConversation[]>([])
-  const [activeConvo, setActiveConvo] = useState<string | null>(null)
-  const [newMessageText, setNewMessageText] = useState('')
-  const [showNewConvo, setShowNewConvo] = useState(false)
-  const [newConvoPhone, setNewConvoPhone] = useState('')
-  const [newConvoName, setNewConvoName] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+export default function CommsHubContent({ onSendEmail }: CommsHubProps) {
+  const [tab, setTab] = useState<Tab>('email')
 
   // Email state
   const [emailTo, setEmailTo] = useState('')
@@ -77,6 +36,7 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
   const [emailSending, setEmailSending] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [showCompose, setShowCompose] = useState(false)
+  const [emailError, setEmailError] = useState<string | null>(null)
 
   // Template state
   const [templates, setTemplates] = useState<EmailTemplate[]>(DEFAULT_TEMPLATES)
@@ -86,183 +46,20 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
   const [bulkSending, setBulkSending] = useState(false)
   const [bulkResult, setBulkResult] = useState<{ sent: number; failed: number } | null>(null)
 
-  // All contacts with phone/email
-  const allContacts = useMemo(() => {
-    const people: { name: string; email?: string; phone?: string }[] = []
-    contacts.forEach((c: any) => { if (c.email || c.phone) people.push({ name: c.name, email: c.email, phone: c.phone }) })
-    teamMembers.forEach((m: any) => { if (m.email || m.phone) people.push({ name: m.name, email: m.email, phone: m.phone }) })
-    return people
-  }, [contacts, teamMembers])
-
-  // Hydrate callLogs and conversations from persisted commsLogs on mount
-  useEffect(() => {
-    if (!commsLogs || commsLogs.length === 0) return
-
-    // Rebuild CallLog[] from call entries
-    const hydratedCalls: CallLog[] = commsLogs
-      .filter(l => l.type === 'call_outgoing' || l.type === 'call_incoming')
-      .map(l => ({
-        id: l.id,
-        contactName: l.contactName,
-        contactPhone: l.contactPhone,
-        type: l.type === 'call_outgoing' ? 'outgoing' : 'incoming',
-        duration: l.durationSeconds,
-        timestamp: l.createdAt,
-        notes: l.notes,
-      }))
-
-    if (hydratedCalls.length > 0) setCallLogs(hydratedCalls)
-
-    // Rebuild TextConversation[] from SMS entries grouped by contactPhone
-    const smsEntries = commsLogs.filter(l => l.type === 'sms_sent' || l.type === 'sms_received')
-    if (smsEntries.length > 0) {
-      const grouped: Record<string, TextConversation> = {}
-      smsEntries.forEach(l => {
-        const phone = l.contactPhone
-        if (!grouped[phone]) {
-          grouped[phone] = { contactName: l.contactName, contactPhone: phone, messages: [], lastMessage: '', lastTimestamp: l.createdAt, unread: 0 }
-        }
-        const msg: TextMessage = {
-          id: l.id,
-          contactName: l.type === 'sms_sent' ? 'You' : l.contactName,
-          contactPhone: phone,
-          content: l.body,
-          direction: l.type === 'sms_sent' ? 'sent' : 'received',
-          timestamp: l.createdAt,
-          status: (['sent', 'delivered', 'read'].includes(l.status) ? l.status : 'delivered') as 'sent' | 'delivered' | 'read',
-        }
-        grouped[phone].messages.push(msg)
-        if (new Date(l.createdAt) > new Date(grouped[phone].lastTimestamp)) {
-          grouped[phone].lastMessage = l.body
-          grouped[phone].lastTimestamp = l.createdAt
-        }
-      })
-      setConversations(Object.values(grouped))
-    }
-  }, [commsLogs])
-
-  // Scroll to bottom on new message
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [activeConvo, conversations])
-
-  // Log a call
-  const logCall = async (type: CallLog['type'], contactName: string, contactPhone: string, duration: number) => {
-    // If outgoing, actually initiate the call via Twilio
-    if (type === 'outgoing' && contactPhone) {
-      try {
-        await fetch('/api/voip', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'make_call', to: contactPhone }),
-        })
-      } catch (err) {
-        console.error('Call failed:', err)
-      }
-    }
-
-    const newLog: CallLog = {
-      id: `call-${Date.now()}`, contactName, contactPhone, type, duration,
-      timestamp: new Date().toISOString(), notes: callNotes,
-    }
-    setCallLogs(prev => [newLog, ...prev])
-
-    // Persist to DB
-    if (onAddCommsLog) {
-      onAddCommsLog({
-        type: type === 'outgoing' ? 'call_outgoing' : 'call_incoming',
-        contactName, contactPhone,
-        body: callNotes,
-        durationSeconds: duration,
-        twilioSid: '',
-        status: 'completed',
-        notes: callNotes,
-      }).catch(() => {})
-    }
-
-    setCallNotes('')
-    setShowNewCall(false)
-  }
-
-  // Send a text message via Twilio SMS
-  const [sendingMsg, setSendingMsg] = useState(false)
-  const sendMessage = async () => {
-    if (!newMessageText.trim() || !activeConvo) return
-    setSendingMsg(true)
-
-    // Send via Twilio
-    try {
-      const res = await fetch('/api/voip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'send_sms', to: activeConvo, message: newMessageText.trim() }),
-      })
-      const data = await res.json()
-
-      const convo = conversations.find(c => c.contactPhone === activeConvo)
-      const msg: TextMessage = {
-        id: data.sid || `msg-${Date.now()}`, contactName: 'You', contactPhone: activeConvo,
-        content: newMessageText.trim(), direction: 'sent',
-        timestamp: new Date().toISOString(), status: data.success ? 'delivered' : 'sent',
-      }
-      setConversations(prev => prev.map(c =>
-        c.contactPhone === activeConvo
-          ? { ...c, messages: [...c.messages, msg], lastMessage: msg.content, lastTimestamp: msg.timestamp }
-          : c
-      ))
-      if (onAddCommsLog) {
-        onAddCommsLog({
-          type: 'sms_sent',
-          contactName: convo?.contactName || activeConvo,
-          contactPhone: activeConvo,
-          body: newMessageText.trim(),
-          durationSeconds: 0,
-          twilioSid: data.sid || '',
-          status: data.success ? 'delivered' : 'sent',
-          notes: '',
-        }).catch(() => {})
-      }
-    } catch {
-      // Fallback — still show the message locally
-      const msg: TextMessage = {
-        id: `msg-${Date.now()}`, contactName: 'You', contactPhone: activeConvo,
-        content: newMessageText.trim(), direction: 'sent',
-        timestamp: new Date().toISOString(), status: 'sent',
-      }
-      setConversations(prev => prev.map(c =>
-        c.contactPhone === activeConvo
-          ? { ...c, messages: [...c.messages, msg], lastMessage: msg.content, lastTimestamp: msg.timestamp }
-          : c
-      ))
-    }
-    setNewMessageText('')
-    setSendingMsg(false)
-  }
-
-  // Start new conversation
-  const startConvo = () => {
-    if (!newConvoPhone) return
-    const existing = conversations.find(c => c.contactPhone === newConvoPhone)
-    if (existing) { setActiveConvo(newConvoPhone); setShowNewConvo(false); return }
-    setConversations(prev => [{
-      contactName: newConvoName || newConvoPhone, contactPhone: newConvoPhone,
-      messages: [], lastMessage: '', lastTimestamp: new Date().toISOString(), unread: 0,
-    }, ...prev])
-    setActiveConvo(newConvoPhone)
-    setShowNewConvo(false)
-    setNewConvoPhone('')
-    setNewConvoName('')
-  }
-
   // Send email
   const handleSendEmail = async () => {
     if (!emailTo || !emailSubject) return
     setEmailSending(true)
+    setEmailError(null)
     try {
       if (onSendEmail) {
-        await onSendEmail({ to: emailTo, cc: emailCc, subject: emailSubject, html: `<pre style="font-family: -apple-system, sans-serif; white-space: pre-wrap;">${emailBody}</pre>`, text: emailBody })
+        await onSendEmail({ to: emailTo, cc: emailCc, subject: emailSubject, html: `<pre style="font-family: -apple-system, sans-serif; white-space: pre-wrap;">${escapeHtml(emailBody)}</pre>`, text: emailBody })
       }
       setEmailSent(true)
       setTimeout(() => { setEmailSent(false); setShowCompose(false); setEmailTo(''); setEmailCc(''); setEmailSubject(''); setEmailBody('') }, 1500)
-    } catch {}
+    } catch (err: any) {
+      setEmailError(err?.message || 'Email failed to send')
+    }
     setEmailSending(false)
   }
 
@@ -284,7 +81,7 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
     let sent = 0, failed = 0
     for (const email of emails) {
       try {
-        await onSendEmail({ to: email, subject: template.subject, html: `<pre style="font-family: -apple-system, sans-serif; white-space: pre-wrap;">${template.body}</pre>`, text: template.body })
+        await onSendEmail({ to: email, subject: template.subject, html: `<pre style="font-family: -apple-system, sans-serif; white-space: pre-wrap;">${escapeHtml(template.body)}</pre>`, text: template.body })
         sent++
       } catch { failed++ }
     }
@@ -293,15 +90,10 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
     setTimeout(() => setBulkResult(null), 3000)
   }
 
-  const formatDuration = (s: number) => { const m = Math.floor(s / 60); const sec = s % 60; return `${m}:${sec.toString().padStart(2, '0')}` }
-  const formatTime = (ts: string) => new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  const formatDate = (ts: string) => new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-
-  const TABS: { id: Tab; label: string; icon: any; badge?: number }[] = [
-    { id: 'calls', label: 'Calls', icon: Phone },
-    { id: 'messages', label: 'Messages', icon: MessageCircle },
+  const TABS: { id: Tab; label: string; icon: any; soon?: boolean }[] = [
     { id: 'email', label: 'Email', icon: Mail },
     { id: 'templates', label: 'Templates', icon: FileText },
+    { id: 'calls_sms', label: 'Calls & SMS', icon: Phone, soon: true },
   ]
 
   const TEMPLATE_CATEGORIES = [
@@ -316,8 +108,6 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
 
   const [templateFilter, setTemplateFilter] = useState('all')
 
-  const activeConversation = conversations.find(c => c.contactPhone === activeConvo)
-
   return (
     <div className="h-full flex flex-col bg-white dark:bg-[#111]">
       {/* Tab Bar — Apple style segmented control */}
@@ -330,18 +120,6 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
               <Plus className="w-3.5 h-3.5" /> Compose
             </button>
           )}
-          {tab === 'messages' && (
-            <button onClick={() => setShowNewConvo(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#007AFF] text-white rounded-full text-xs font-medium hover:bg-[#0066d6] transition-colors">
-              <Plus className="w-3.5 h-3.5" /> New
-            </button>
-          )}
-          {tab === 'calls' && (
-            <button onClick={() => setShowNewCall(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#34C759] text-white rounded-full text-xs font-medium hover:bg-[#2db84e] transition-colors">
-              <Phone className="w-3.5 h-3.5" /> Log Call
-            </button>
-          )}
         </div>
         <div className="flex bg-gray-200/80 dark:bg-[#2a2a2a] rounded-lg p-0.5">
           {TABS.map(t => (
@@ -350,6 +128,7 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
                 tab === t.id ? 'bg-white dark:bg-[#333] text-gray-900 dark:text-gray-100 shadow-sm' : 'text-gray-500'
               }`}>
               <t.icon className="w-3.5 h-3.5" /> {t.label}
+              {t.soon && <span className="px-1.5 py-px rounded-full bg-gray-300/70 dark:bg-[#444] text-[8px] font-semibold uppercase tracking-wide text-gray-600 dark:text-gray-300">Soon</span>}
             </button>
           ))}
         </div>
@@ -357,137 +136,22 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
 
       <div className="flex-1 flex overflow-hidden">
 
-        {/* ===== CALLS TAB ===== */}
-        {tab === 'calls' && (
-          <div className="flex-1 overflow-y-auto">
-            {callLogs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                <div className="w-14 h-14 rounded-full bg-[#34C759]/10 flex items-center justify-center mb-3">
-                  <Phone className="w-7 h-7 text-[#34C759]" />
-                </div>
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">No Call History</h3>
-                <p className="text-xs text-gray-500 max-w-xs">Log calls to keep track of conversations with clients and team members.</p>
+        {/* ===== CALLS & SMS (COMING SOON) ===== */}
+        {tab === 'calls_sms' && (
+          <div className="flex-1 flex flex-col items-center justify-center text-center px-4">
+            <div className="flex gap-2 mb-3">
+              <div className="w-12 h-12 rounded-full bg-[#34C759]/10 flex items-center justify-center">
+                <Phone className="w-6 h-6 text-[#34C759]" />
               </div>
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-[#222]">
-                {callLogs.map(call => (
-                  <div key={call.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      call.type === 'missed' ? 'bg-red-50 dark:bg-red-900/20' :
-                      call.type === 'incoming' ? 'bg-blue-50 dark:bg-blue-900/20' :
-                      'bg-green-50 dark:bg-green-900/20'
-                    }`}>
-                      {call.type === 'missed' ? <PhoneMissed className="w-4 h-4 text-red-500" /> :
-                       call.type === 'incoming' ? <PhoneIncoming className="w-4 h-4 text-blue-500" /> :
-                       <PhoneOutgoing className="w-4 h-4 text-green-500" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${call.type === 'missed' ? 'text-red-600' : 'text-gray-900 dark:text-gray-100'}`}>{call.contactName}</p>
-                      <p className="text-[10px] text-gray-400">{call.contactPhone}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[11px] text-gray-500">{formatTime(call.timestamp)}</p>
-                      {call.duration > 0 && <p className="text-[10px] text-gray-400">{formatDuration(call.duration)}</p>}
-                    </div>
-                  </div>
-                ))}
+              <div className="w-12 h-12 rounded-full bg-[#007AFF]/10 flex items-center justify-center">
+                <MessageCircle className="w-6 h-6 text-[#007AFF]" />
               </div>
-            )}
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">Calls &amp; SMS — Coming Soon</h3>
+            <p className="text-xs text-gray-500 max-w-xs">
+              Calling and text messaging with clients is on the way. In the meantime, use Email here or the Messages card for team chat.
+            </p>
           </div>
-        )}
-
-        {/* ===== MESSAGES TAB (iMessage style) ===== */}
-        {tab === 'messages' && (
-          <>
-            {/* Conversation list */}
-            {!activeConvo ? (
-              <div className="flex-1 overflow-y-auto">
-                {conversations.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                    <div className="w-14 h-14 rounded-full bg-[#007AFF]/10 flex items-center justify-center mb-3">
-                      <MessageCircle className="w-7 h-7 text-[#007AFF]" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-1">No Messages</h3>
-                    <p className="text-xs text-gray-500 max-w-xs">Start a conversation with a client or team member.</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-100 dark:divide-[#222]">
-                    {conversations.map(convo => (
-                      <button key={convo.contactPhone} onClick={() => setActiveConvo(convo.contactPhone)}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors text-left">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#007AFF] to-[#5856D6] flex items-center justify-center shrink-0">
-                          <span className="text-white text-sm font-bold">{convo.contactName[0]?.toUpperCase()}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{convo.contactName}</span>
-                            <span className="text-[10px] text-gray-400">{formatTime(convo.lastTimestamp)}</span>
-                          </div>
-                          <p className="text-xs text-gray-500 truncate">{convo.lastMessage || 'No messages yet'}</p>
-                        </div>
-                        {convo.unread > 0 && (
-                          <div className="w-5 h-5 rounded-full bg-[#007AFF] flex items-center justify-center">
-                            <span className="text-white text-[9px] font-bold">{convo.unread}</span>
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Active conversation — iMessage blue bubbles */
-              <div className="flex-1 flex flex-col">
-                {/* Chat header */}
-                <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100 dark:border-[#222] bg-[#f5f5f7]/80 dark:bg-[#1a1a1a]/80 backdrop-blur-xl">
-                  <button onClick={() => setActiveConvo(null)} className="text-[#007AFF]">
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#007AFF] to-[#5856D6] flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">{activeConversation?.contactName[0]?.toUpperCase()}</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{activeConversation?.contactName}</p>
-                    <p className="text-[10px] text-gray-400">{activeConversation?.contactPhone}</p>
-                  </div>
-                </div>
-
-                {/* Messages area */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 bg-[#f5f5f7] dark:bg-[#111]">
-                  {activeConversation?.messages.map(msg => (
-                    <div key={msg.id} className={`flex ${msg.direction === 'sent' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] px-3.5 py-2 rounded-2xl ${
-                        msg.direction === 'sent'
-                          ? 'bg-[#007AFF] text-white rounded-br-md'
-                          : 'bg-white dark:bg-[#2a2a2a] text-gray-900 dark:text-gray-100 rounded-bl-md shadow-sm'
-                      }`}>
-                        <p className="text-[13px] leading-relaxed">{msg.content}</p>
-                        <p className={`text-[9px] mt-1 ${msg.direction === 'sent' ? 'text-white/60' : 'text-gray-400'}`}>
-                          {formatTime(msg.timestamp)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input bar */}
-                <div className="px-4 py-3 bg-white dark:bg-[#1a1a1a] border-t border-gray-100 dark:border-[#222]">
-                  <div className="flex items-center gap-2">
-                    <input type="text" value={newMessageText}
-                      onChange={e => setNewMessageText(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                      placeholder="iMessage"
-                      className="flex-1 px-4 py-2 bg-[#f5f5f7] dark:bg-[#222] rounded-full text-sm text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#007AFF]/30" />
-                    <button onClick={sendMessage} disabled={!newMessageText.trim() || sendingMsg}
-                      className="w-8 h-8 rounded-full bg-[#007AFF] flex items-center justify-center disabled:opacity-30 transition-opacity">
-                      {sendingMsg ? <Loader2 className="w-4 h-4 text-white animate-spin" /> : <Send className="w-4 h-4 text-white" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </>
         )}
 
         {/* ===== EMAIL TAB ===== */}
@@ -509,6 +173,7 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
                   <textarea value={emailBody} onChange={e => setEmailBody(e.target.value)} placeholder="Write your message..."
                     rows={12} className="w-full px-3 py-2.5 bg-[#f5f5f7] dark:bg-[#222] rounded-lg text-sm border-none focus:outline-none focus:ring-2 focus:ring-[#007AFF]/20 resize-none" />
                 </div>
+                {emailError && <p className="text-xs text-red-500">{emailError}</p>}
                 <div className="flex items-center justify-between pt-2">
                   <button onClick={() => { setTab('templates'); setShowCompose(false) }}
                     className="text-xs text-[#007AFF] hover:underline flex items-center gap-1">
@@ -600,104 +265,10 @@ export default function CommsHubContent({ contacts = [], teamMembers = [], proje
         )}
       </div>
 
-      {/* New Conversation Modal */}
-      {showNewConvo && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowNewConvo(false)} />
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 dark:border-[#2a2a2a] relative">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">New Conversation</h3>
-            <div className="space-y-3">
-              <input type="text" value={newConvoName} onChange={e => setNewConvoName(e.target.value)} placeholder="Contact name"
-                className="w-full px-3 py-2 bg-[#f5f5f7] dark:bg-[#222] rounded-lg text-sm" />
-              <input type="tel" value={newConvoPhone} onChange={e => setNewConvoPhone(e.target.value)} placeholder="Phone number"
-                className="w-full px-3 py-2 bg-[#f5f5f7] dark:bg-[#222] rounded-lg text-sm" />
-              {/* Quick select from contacts */}
-              {allContacts.filter(c => c.phone).length > 0 && (
-                <div className="max-h-32 overflow-y-auto space-y-1">
-                  {allContacts.filter(c => c.phone).map((c, i) => (
-                    <button key={i} onClick={() => { setNewConvoName(c.name); setNewConvoPhone(c.phone || '') }}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-[#222] text-left">
-                      <span className="text-xs font-medium text-gray-900 dark:text-gray-100">{c.name}</span>
-                      <span className="text-[10px] text-gray-400">{c.phone}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex gap-3 mt-4">
-              <button onClick={() => setShowNewConvo(false)} className="flex-1 px-4 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg">Cancel</button>
-              <button onClick={startConvo} disabled={!newConvoPhone}
-                className="flex-1 px-4 py-2 text-sm text-white bg-[#007AFF] rounded-lg font-medium disabled:opacity-50">Start</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Log Call Modal */}
-      {showNewCall && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowNewCall(false)} />
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-gray-200 dark:border-[#2a2a2a] relative">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Log Call</h3>
-            <CallLogForm contacts={allContacts} onLog={logCall} onCancel={() => setShowNewCall(false)} />
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
-// Extracted call log form
-function CallLogForm({ contacts, onLog, onCancel }: {
-  contacts: { name: string; phone?: string }[]
-  onLog: (type: CallLog['type'], name: string, phone: string, duration: number) => void
-  onCancel: () => void
-}) {
-  const [name, setName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [type, setType] = useState<CallLog['type']>('outgoing')
-  const [mins, setMins] = useState('')
-  const [secs, setSecs] = useState('')
-
-  return (
-    <div className="space-y-3">
-      <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Contact name"
-        className="w-full px-3 py-2 bg-[#f5f5f7] dark:bg-[#222] rounded-lg text-sm" />
-      <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone number"
-        className="w-full px-3 py-2 bg-[#f5f5f7] dark:bg-[#222] rounded-lg text-sm" />
-      <div className="flex gap-2">
-        {(['outgoing', 'incoming', 'missed'] as const).map(t => (
-          <button key={t} onClick={() => setType(t)}
-            className={`flex-1 py-2 rounded-lg text-[10px] font-medium capitalize transition-colors ${
-              type === t ? (t === 'missed' ? 'bg-red-500 text-white' : t === 'incoming' ? 'bg-blue-500 text-white' : 'bg-green-500 text-white')
-              : 'bg-gray-100 dark:bg-[#222] text-gray-600'
-            }`}>{t}</button>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <input type="number" value={mins} onChange={e => setMins(e.target.value)} placeholder="Min" min="0"
-          className="flex-1 px-3 py-2 bg-[#f5f5f7] dark:bg-[#222] rounded-lg text-sm text-center" />
-        <span className="text-gray-400 self-center">:</span>
-        <input type="number" value={secs} onChange={e => setSecs(e.target.value)} placeholder="Sec" min="0" max="59"
-          className="flex-1 px-3 py-2 bg-[#f5f5f7] dark:bg-[#222] rounded-lg text-sm text-center" />
-      </div>
-      {contacts.filter(c => c.phone).length > 0 && (
-        <div className="max-h-24 overflow-y-auto space-y-1 border-t border-gray-100 dark:border-[#222] pt-2">
-          {contacts.filter(c => c.phone).slice(0, 5).map((c, i) => (
-            <button key={i} onClick={() => { setName(c.name); setPhone(c.phone || '') }}
-              className="w-full flex justify-between px-2 py-1 rounded text-[10px] hover:bg-gray-50 dark:hover:bg-[#222]">
-              <span className="font-medium text-gray-700 dark:text-gray-300">{c.name}</span>
-              <span className="text-gray-400">{c.phone}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="flex gap-3 pt-1">
-        <button onClick={onCancel} className="flex-1 px-4 py-2 text-sm border border-gray-200 dark:border-[#333] rounded-lg">Cancel</button>
-        <button onClick={() => { if (name && phone) onLog(type, name, phone, (parseInt(mins || '0') * 60) + parseInt(secs || '0')) }}
-          disabled={!name || !phone}
-          className="flex-1 px-4 py-2 text-sm text-white bg-[#34C759] rounded-lg font-medium disabled:opacity-50">Log Call</button>
-      </div>
-    </div>
-  )
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
 }
