@@ -70,7 +70,6 @@ import {
   ScheduleContent,
   EstimatingContent,
   InvoicingContent,
-  ChatContent,
   SettingsContent,
   IntegrationsContent,
   AccountingContent,
@@ -89,13 +88,7 @@ import { useRoles, RolesProvider, CanDo } from '@/hooks/useRoles'
 import PortalLinkActions from '@/components/PortalLinkActions'
 import { useNotifications } from '@/hooks/useNotifications'
 import NotificationBell from '@/components/ui/NotificationBell'
-import { 
-  initialCards, 
-  mockMessages, 
-  mockChatMessages, 
-  formTypes,
-  menuItems 
-} from '@/data/mockData'
+import { initialCards } from '@/config/initialCards'
 import MobileLayout from '@/components/ui/MobileLayout'
 import MobileDashboard from '@/components/MobileDashboard'
 import Onboarding, { HelpButton } from '@/components/Onboarding'
@@ -1248,9 +1241,6 @@ case 'maps':
             }}
           />
         )
-
-      case 'chat':
-        return <ChatContent projects={projects} messages={mockChatMessages} />
 
       case 'settings':
         return <SettingsContent />

@@ -3,7 +3,7 @@
 //   documents / photos:   {user_id}/{project_id}/...       → {org_id}/{project_id}/{kind}/{file}
 //   message attachments:  messages/{user_id}/{msg_id}/...  → {org_id}/general/messages/{msg_id}/{file}
 //
-// Run AFTER supabase/migration-security-storage-rls.sql (legacy files stay
+// Run AFTER supabase/legacy/migration-security-storage-rls.sql (legacy files stay
 // readable by org-mates until moved, so there's no rush).
 //
 //   node --env-file=.env.local scripts/migrate-storage-paths.mjs           # dry run

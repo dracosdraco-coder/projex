@@ -244,12 +244,11 @@ npm install`}</CodeBlock>
           <P>See the <strong>Environment Variables</strong> section for the full list of required keys.</P>
 
           <H3>3. Run Database Migrations</H3>
-          <P>In your Supabase SQL Editor, run the migration files in order:</P>
-          <CodeBlock label="Order of execution">{`supabase/migration.sql          ← Core tables (projects, tasks, profiles)
-supabase/migration-orgs.sql     ← Organizations, roles, invites
-supabase/migration-referrals.sql ← Referral system
-supabase/migration-fixes.sql    ← Patches and constraint fixes`}</CodeBlock>
-          <Note type="warn">Run migrations in the order listed. Running them out of order will cause foreign key constraint errors.</Note>
+          <P>Migrations live in <Code>supabase/migrations/</Code> and are applied in timestamp order with the Supabase CLI:</P>
+          <CodeBlock label="Terminal">{`supabase link --project-ref <your-project-ref>
+npm run db:push     # applies supabase/migrations/* in order
+npm run db:types    # regenerates src/types/supabase.ts`}</CodeBlock>
+          <Note type="warn">The first file is a baseline of the full production schema. Files in <Code>supabase/legacy/</Code> are history only. Do not run them.</Note>
 
           <H3>4. Run Locally</H3>
           <CodeBlock label="Terminal">{`npm run dev

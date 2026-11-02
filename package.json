@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:types": "supabase gen types typescript --linked --schema public > src/types/supabase.ts",
+    "db:push": "supabase db push"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.2",

@@ -22,8 +22,8 @@ src/components/cards/     One component per app card (Projects, Tasks, Documents
 src/hooks/                Data fetching and state (Supabase queries live here)
 src/lib/stripe-plans.ts   Plans and feature gating
 src/middleware.ts         Supabase SSR session refresh and route protection
-supabase-schema.sql       Base schema
-supabase/                 Migrations
+supabase/migrations/      Supabase CLI migrations (baseline = production schema, Nov 2026)
+supabase/legacy/          Old hand-run SQL, history only
 ```
 
 ## Running locally
