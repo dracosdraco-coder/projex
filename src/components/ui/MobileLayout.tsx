@@ -74,7 +74,6 @@ const APP_SECTIONS = [
     { id: 'maps', name: 'Maps', color: 'bg-green-600' },
     { id: 'branches', name: 'Branches', color: 'bg-stone-500' },
     { id: 'integrations', name: 'Integrations', color: 'bg-purple-600' },
-    { id: 'chat', name: 'AI Chat', color: 'bg-gray-900' },
   ]},
 ]
 

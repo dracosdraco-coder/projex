@@ -86,9 +86,20 @@ Defined in `src/lib/stripe-plans.ts`:
 
 ## Database
 
-Schema lives in `supabase-schema.sql` + migration files in `supabase/`.
-Apply via Supabase SQL Editor. Key tables: profiles, projects, tasks, expenses,
-team_members, meetings, branches, subscriptions, organizations.
+Migrations are managed with the Supabase CLI in `supabase/migrations/` (timestamped,
+applied in order). `20261102000000_baseline.sql` is a `pg_dump` of production as of
+Nov 2026; everything after it is incremental. Old hand-run files live in
+`supabase/legacy/` for history only — never run them.
+
+- New change: add `supabase/migrations/<YYYYMMDDHHMMSS>_<name>.sql`, then `npm run db:push`
+  (or paste it into the SQL editor and mark it applied with `supabase migration repair`).
+- Regenerate types after schema changes: `npm run db:types` → `src/types/supabase.ts`.
+- Every org-scoped table has `org_id NOT NULL DEFAULT public.current_org_id()`; RLS checks
+  membership via `public.user_org_ids(auth.uid())`.
+- `activity_events` is filled by triggers on the core tables — don't write to it from the app.
+
+Key tables: organizations, org_members, org_invites, profiles, projects, tasks, expenses,
+team_members, meetings, branches, subscriptions, activity_events.
 
 ## Environment variables
 
@@ -106,7 +117,7 @@ npm run dev                   # http://localhost:3000
 ## Key conventions
 
 - All data fetching is in custom hooks under `src/hooks/`
-- No mock data is used in production paths — `src/data/mockData.ts` is for dev only
+- No mock data — the default card layout lives in `src/config/initialCards.ts`
 - Cards in the spatial canvas are rendered by `AccessClient.tsx` which maps card types to components
 - The landing page and the app share the same Next.js app but have completely separate UI stacks (landing is dark/zinc, app uses a theme toggle)
 - Stripe price IDs are **never** hardcoded — always read from env vars at runtime

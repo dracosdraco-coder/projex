@@ -2,43 +2,48 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { FolderOpen, CheckSquare, FileText, Users, MessageSquare, DollarSign, Calendar, Clock } from 'lucide-react'
+import { FolderOpen, CheckSquare, FileText, Users, UserPlus, MessageSquare, DollarSign, Calendar, Camera, Clock } from 'lucide-react'
 
 interface ActivityItem {
-  id: string
-  type: string
-  action: string
-  entityName: string
+  id: number
+  entityType: string
+  verb: 'created' | 'updated' | 'deleted'
+  summary: string
   actorName: string
-  actorEmail: string
   createdAt: string
-  metadata?: Record<string, any>
+  data: Record<string, any>
 }
 
 const ACTION_ICONS: Record<string, any> = {
   project: FolderOpen,
+  phase: FolderOpen,
   task: CheckSquare,
   document: FileText,
-  team: Users,
+  file: FileText,
+  photo: Camera,
+  member: Users,
+  lead: UserPlus,
   message: MessageSquare,
   expense: DollarSign,
   event: Calendar,
+  meeting: Calendar,
 }
 
-const ACTION_VERBS: Record<string, string> = {
-  INSERT: 'created',
-  UPDATE: 'updated',
-  DELETE: 'deleted',
-  sent: 'sent',
-  invited: 'invited',
+const ENTITY_LABELS: Record<string, string> = {
+  project: 'project', phase: 'phase', task: 'task', document: '', file: 'file',
+  photo: 'photo', member: 'team member', lead: 'lead', message: 'message',
+  expense: 'expense', event: 'event', meeting: 'meeting',
 }
 
 interface ActivityFeedProps {
   orgId: string | null
+  projectId?: string
   limit?: number
 }
 
-export default function ActivityFeed({ orgId, limit = 20 }: ActivityFeedProps) {
+// Reads activity_events, which database triggers fill on every change to the core
+// tables (see supabase/migrations/20261102000100_org_scoping_and_activity.sql).
+export default function ActivityFeed({ orgId, projectId, limit = 20 }: ActivityFeedProps) {
   const [activities, setActivities] = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -46,133 +51,26 @@ export default function ActivityFeed({ orgId, limit = 20 }: ActivityFeedProps) {
     if (!orgId) return
     setLoading(true)
 
-    // Build activity from recent changes across tables
-    const results: ActivityItem[] = []
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() // Last 7 days
-
-    // Recent projects
-    const { data: projects } = await supabase
-      .from('projects')
-      .select('id, name, created_at, updated_at, user_id')
+    let query = supabase
+      .from('activity_events')
+      .select('id, entity_type, verb, summary, actor_name, data, created_at')
       .eq('org_id', orgId)
-      .gte('updated_at', since)
-      .order('updated_at', { ascending: false })
-      .limit(10)
-
-    projects?.forEach(p => {
-      // Compare created_at and updated_at to determine if new or updated
-      const created = new Date(p.created_at).getTime()
-      const updated = new Date(p.updated_at || p.created_at).getTime()
-      const isNew = (updated - created) < 5000 // within 5s = likely new
-      results.push({
-        id: `project-${p.id}`, type: 'project',
-        action: isNew ? 'INSERT' : 'UPDATE',
-        entityName: p.name, actorName: '', actorEmail: '',
-        createdAt: p.updated_at || p.created_at,
-      })
-    })
-
-    // Recent tasks
-    const { data: tasks } = await supabase
-      .from('tasks')
-      .select('id, title, created_at, updated_at, status, assignee')
-      .eq('org_id', orgId)
-      .gte('updated_at', since)
-      .order('updated_at', { ascending: false })
-      .limit(10)
-
-    tasks?.forEach(t => {
-      const created = new Date(t.created_at).getTime()
-      const updated = new Date(t.updated_at || t.created_at).getTime()
-      const isNew = (updated - created) < 5000
-      results.push({
-        id: `task-${t.id}`, type: 'task',
-        action: isNew ? 'INSERT' : 'UPDATE',
-        entityName: t.title, actorName: t.assignee || '', actorEmail: '',
-        createdAt: t.updated_at || t.created_at,
-        metadata: { status: t.status },
-      })
-    })
-
-    // Recent documents
-    const { data: docs } = await supabase
-      .from('generated_documents')
-      .select('id, document_number, type, status, created_at, updated_at')
-      .eq('org_id', orgId)
-      .gte('updated_at', since)
-      .order('updated_at', { ascending: false })
-      .limit(10)
-
-    docs?.forEach(d => {
-      results.push({
-        id: `doc-${d.id}`, type: 'document',
-        action: d.status === 'sent' ? 'sent' : 'INSERT',
-        entityName: `${d.type} ${d.document_number}`, actorName: '', actorEmail: '',
-        createdAt: d.updated_at || d.created_at,
-        metadata: { status: d.status, docType: d.type },
-      })
-    })
-
-    // Recent messages
-    const { data: msgs } = await supabase
-      .from('messages')
-      .select('id, sender_name, content, created_at')
-      .eq('org_id', orgId)
-      .gte('created_at', since)
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(limit)
+    if (projectId) query = query.eq('project_id', projectId)
 
-    msgs?.forEach(m => {
-      results.push({
-        id: `msg-${m.id}`, type: 'message',
-        action: 'INSERT',
-        entityName: (m.content || '').substring(0, 60), actorName: m.sender_name || '', actorEmail: '',
-        createdAt: m.created_at,
-      })
-    })
-
-    // Recent expenses
-    const { data: expenses } = await supabase
-      .from('expenses')
-      .select('id, description, amount, created_at')
-      .eq('org_id', orgId)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(10)
-
-    expenses?.forEach(e => {
-      results.push({
-        id: `exp-${e.id}`, type: 'expense',
-        action: 'INSERT',
-        entityName: `${e.description || 'Expense'} ($${(e.amount || 0).toLocaleString()})`,
-        actorName: '', actorEmail: '',
-        createdAt: e.created_at,
-      })
-    })
-
-    // Recent team changes
-    const { data: orgMembers } = await supabase
-      .from('org_members')
-      .select('id, name, email, status, created_at, joined_at')
-      .eq('org_id', orgId)
-      .gte('created_at', since)
-      .order('created_at', { ascending: false })
-      .limit(5)
-
-    orgMembers?.forEach(m => {
-      results.push({
-        id: `member-${m.id}`, type: 'team',
-        action: m.status === 'pending' ? 'invited' : 'INSERT',
-        entityName: m.name || m.email, actorName: '', actorEmail: '',
-        createdAt: m.joined_at || m.created_at,
-      })
-    })
-
-    // Sort by date, take top N
-    results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    setActivities(results.slice(0, limit))
+    const { data } = await query
+    setActivities((data || []).map((r: any) => ({
+      id: r.id,
+      entityType: r.entity_type,
+      verb: r.verb,
+      summary: r.summary || '',
+      actorName: r.actor_name || '',
+      createdAt: r.created_at,
+      data: r.data || {},
+    })))
     setLoading(false)
-  }, [orgId, limit])
+  }, [orgId, projectId, limit])
 
   useEffect(() => { loadActivity() }, [loadActivity])
 
@@ -191,9 +89,15 @@ export default function ActivityFeed({ orgId, limit = 20 }: ActivityFeedProps) {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  const getActionText = (item: ActivityItem) => {
-    if (item.action === 'sent') return 'sent'
-    return ACTION_VERBS[item.action] || 'updated'
+  const describe = (item: ActivityItem) => {
+    const status = item.data.status
+    if (item.verb === 'updated' && status?.to) {
+      return { verb: `moved ${ENTITY_LABELS[item.entityType] || ''}`.trim(), suffix: `to ${String(status.to).replace(/[_-]/g, ' ')}` }
+    }
+    const what = ENTITY_LABELS[item.entityType]
+    const amount = item.entityType === 'expense' && item.data.amount != null
+      ? ` ($${Number(item.data.amount).toLocaleString()})` : ''
+    return { verb: `${item.verb}${what ? ' ' + what : ''}`, suffix: amount }
   }
 
   if (loading) {
@@ -224,7 +128,8 @@ export default function ActivityFeed({ orgId, limit = 20 }: ActivityFeedProps) {
   return (
     <div className="space-y-1">
       {activities.map(item => {
-        const Icon = ACTION_ICONS[item.type] || FileText
+        const Icon = ACTION_ICONS[item.entityType] || FileText
+        const { verb, suffix } = describe(item)
         return (
           <div key={item.id} className="flex items-start gap-2.5 px-2 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-[#1a1a1a] transition-colors">
             <div className="w-7 h-7 rounded-lg bg-gray-100 dark:bg-[#222] flex items-center justify-center shrink-0 mt-0.5">
@@ -233,8 +138,9 @@ export default function ActivityFeed({ orgId, limit = 20 }: ActivityFeedProps) {
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed">
                 {item.actorName && <span className="font-medium">{item.actorName} </span>}
-                <span className="text-gray-400">{getActionText(item)}</span>{' '}
-                <span className="font-medium">{item.entityName}</span>
+                <span className="text-gray-400">{verb}</span>{' '}
+                <span className="font-medium">{item.summary}</span>
+                {suffix && <span className="text-gray-400"> {suffix}</span>}
               </p>
               <span className="text-[10px] text-gray-400">{formatTime(item.createdAt)}</span>
             </div>

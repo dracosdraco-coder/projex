@@ -77,7 +77,6 @@ export const CARD_PLAN_REQUIREMENTS: Record<string, PlanId> = {
   messages: 'team',
   proposals: 'team',
   communication: 'team',
-  chat: 'team',
   drawings: 'team',
   timeline: 'team',
   phases: 'team',
